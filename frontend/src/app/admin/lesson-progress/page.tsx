@@ -54,8 +54,8 @@ export default function AdminLessonProgressPage() {
       title: 'Lesson Progress',
       subtitle: 'Monitor completion across lessons.',
       searchPlaceholder: 'Search by learner or lesson…',
-      primaryActionLabel: '+ New Record',
-      onPrimaryAction: () => {},
+      primaryActionLabel: undefined,
+      onPrimaryAction: undefined,
     });
   }, [setHeader]);
 
@@ -121,7 +121,7 @@ export default function AdminLessonProgressPage() {
     {
       key: 'id',
       header: 'ID',
-      render: (r) => <span className="font-mono text-gray-700">LP-{r.id}</span>,
+      render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">LP-{r.id}</span>,
     },
     {
       key: 'learner',
@@ -130,12 +130,12 @@ export default function AdminLessonProgressPage() {
         const p = r.learner_name.trim().split(/\s+/);
         return (
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-700">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/20 text-xs font-medium text-blue-600 dark:bg-blue-400/20 dark:text-blue-400">
               {initialsFromName(p[0], p[1] || '', r.learner_email)}
             </div>
             <div>
-              <p className="font-medium text-gray-900">{r.learner_name}</p>
-              <p className="text-xs text-gray-500">{r.learner_email}</p>
+              <p className="font-medium text-gray-900 dark:text-white">{r.learner_name}</p>
+              <p className="text-xs text-gray-800 dark:text-gray-200">{r.learner_email}</p>
             </div>
           </div>
         );
@@ -146,8 +146,8 @@ export default function AdminLessonProgressPage() {
       header: 'Lesson Title',
       render: (r) => (
         <div>
-          <p className="font-medium text-gray-900">{r.lesson_title}</p>
-          <p className="text-xs font-medium text-blue-600">{r.course_title}</p>
+          <p className="font-medium text-gray-900 dark:text-white">{r.lesson_title}</p>
+          <p className="text-xs font-medium text-blue-600 dark:text-blue-400">{r.course_title}</p>
         </div>
       ),
     },
@@ -156,11 +156,11 @@ export default function AdminLessonProgressPage() {
       header: 'Status',
       render: (r) =>
         r.is_completed ? (
-          <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+          <span className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400">
             COMPLETED
           </span>
         ) : (
-          <span className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-bold text-rose-700">
+          <span className="inline-flex rounded-full border border-gray-500/20 bg-gray-500/10 px-2.5 py-0.5 text-xs font-bold text-gray-600 dark:border-gray-400/10 dark:bg-gray-400/10 dark:text-gray-400">
             NOT COMPLETED
           </span>
         ),
@@ -179,7 +179,7 @@ export default function AdminLessonProgressPage() {
       key: 'actions',
       header: 'Actions',
       render: () => (
-        <button type="button" className="rounded p-1 text-gray-400 hover:bg-gray-100" aria-label="More">
+        <button type="button" className="rounded p-1 text-gray-400 hover:bg-white/10 dark:hover:text-gray-300" aria-label="More">
           <DotsIcon />
         </button>
       ),
@@ -197,7 +197,7 @@ export default function AdminLessonProgressPage() {
         <StatsCard label="Stalled" value={statsLoading ? '—' : stats.stalled} variant="warning" />
       </div>
       <div className="flex flex-wrap items-center gap-4">
-        <div className="flex flex-wrap gap-2 rounded-lg border border-gray-200 bg-white p-1">
+        <div className="flex flex-wrap gap-2 rounded-xl border border-white/20 bg-white/70 p-1 shadow-lg shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-white/5 dark:shadow-black/20">
           {(
             [
               ['all', 'All'],
@@ -213,7 +213,7 @@ export default function AdminLessonProgressPage() {
                 setPage(1);
               }}
               className={`rounded-md px-4 py-2 text-sm font-medium transition ${
-                tab === k ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'
+                tab === k ? 'bg-blue-600 text-white shadow-sm dark:bg-blue-500' : 'text-gray-600 hover:bg-white/50 dark:text-gray-400 dark:hover:bg-white/10'
               }`}
             >
               {label}
@@ -221,11 +221,11 @@ export default function AdminLessonProgressPage() {
           ))}
         </div>
         <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
+          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
             Date Range
           </label>
           <select
-            className="mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+            className="glass-input mt-1 text-sm"
             value={dateRange}
             onChange={(e) => {
               setDateRange(e.target.value);

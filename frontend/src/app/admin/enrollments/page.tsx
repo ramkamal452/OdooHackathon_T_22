@@ -3,6 +3,7 @@
 import DataTable, { type Column } from '@/components/DataTable';
 import Pagination from '@/components/Pagination';
 import StatsCard from '@/components/StatsCard';
+import { useToast } from '@/components/Toast';
 import { useAdminPage } from '@/app/admin/AdminPageContext';
 import { formatDate, initialsFromName } from '@/lib/admin-format';
 import { fetchPage } from '@/lib/admin-fetch';
@@ -31,6 +32,7 @@ function DotsIcon() {
 
 export default function AdminEnrollmentsPage() {
   const { setHeader, search } = useAdminPage();
+  const { toast } = useToast();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState('');
   const [courseId, setCourseId] = useState('');
@@ -51,17 +53,20 @@ export default function AdminEnrollmentsPage() {
       title: 'Enrollment Registry',
       subtitle: 'Track learner enrollments and progress.',
       searchPlaceholder: 'Search by learner email or course title…',
-      primaryActionLabel: '+ New Record',
-      onPrimaryAction: () => {},
     });
   }, [setHeader]);
 
   useEffect(() => {
     (async () => {
-      const data = await fetchPage<{ id: number; title: string }>('/api/admin/courses/', { page: 1 });
-      setCourses(data.results.map((c) => ({ id: c.id, title: c.title })));
+      try {
+        const data = await fetchPage<{ id: number; title: string }>('/api/admin/courses/', { page: 1 });
+        setCourses(data.results.map((c) => ({ id: c.id, title: c.title })));
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to load courses';
+        toast(msg, 'error');
+      }
     })();
-  }, []);
+  }, [toast]);
 
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
@@ -81,10 +86,13 @@ export default function AdminEnrollmentsPage() {
         dropped: dropped.count,
         newThisMonth: newMonth,
       });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load enrollment stats';
+      toast(msg, 'error');
     } finally {
       setStatsLoading(false);
     }
-  }, [search]);
+  }, [search, toast]);
 
   const loadTable = useCallback(async () => {
     setLoading(true);
@@ -102,10 +110,13 @@ export default function AdminEnrollmentsPage() {
       );
       setRows(data.results);
       setTotal(data.count);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load enrollments';
+      toast(msg, 'error');
     } finally {
       setLoading(false);
     }
-  }, [page, search, status, courseId]);
+  }, [page, search, status, courseId, toast]);
 
   useEffect(() => {
     loadStats();
@@ -119,22 +130,22 @@ export default function AdminEnrollmentsPage() {
     {
       key: 'id',
       header: 'ID',
-      render: (r) => <span className="font-mono text-gray-700">#EN-{r.id}</span>,
+      render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">#EN-{r.id}</span>,
     },
     {
       key: 'learner',
       header: 'Learner',
       render: (r) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-700">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/20 text-xs font-medium text-blue-600 dark:bg-blue-400/20 dark:text-blue-400">
             {(() => {
               const p = r.learner_name.trim().split(/\s+/);
               return initialsFromName(p[0], p[1] || '', r.learner_email);
             })()}
           </div>
           <div>
-            <p className="font-medium text-gray-900">{r.learner_name}</p>
-            <p className="text-xs text-gray-500">{r.learner_email}</p>
+            <p className="font-medium text-gray-900 dark:text-white">{r.learner_name}</p>
+            <p className="text-xs text-gray-800 dark:text-gray-200">{r.learner_email}</p>
           </div>
         </div>
       ),
@@ -144,8 +155,8 @@ export default function AdminEnrollmentsPage() {
       header: 'Course',
       render: (r) => (
         <div>
-          <p className="font-medium text-gray-900">{r.course_title}</p>
-          <p className="text-xs text-gray-500">Enrolled course</p>
+          <p className="font-medium text-gray-900 dark:text-white">{r.course_title}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Enrolled course</p>
         </div>
       ),
     },
@@ -159,15 +170,15 @@ export default function AdminEnrollmentsPage() {
       header: 'Status',
       render: (r) =>
         r.status === 'active' ? (
-          <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+          <span className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400">
             Active
           </span>
         ) : r.status === 'completed' ? (
-          <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
+          <span className="inline-flex rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:border-blue-400/20 dark:bg-blue-400/10 dark:text-blue-300">
             Completed
           </span>
         ) : (
-          <span className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-semibold text-rose-700">
+          <span className="inline-flex rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-0.5 text-xs font-semibold text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-400">
             Dropped
           </span>
         ),
@@ -177,9 +188,9 @@ export default function AdminEnrollmentsPage() {
       header: 'Progress',
       render: (r) => (
         <div className="flex items-center gap-2">
-          <div className="h-1.5 w-20 rounded-full bg-gray-200">
+          <div className="h-1.5 w-20 rounded-full bg-gray-200 dark:bg-white/10">
             <div
-              className="h-full rounded-full bg-blue-600"
+              className="h-full rounded-full bg-blue-600 dark:bg-blue-500"
               style={{ width: `${r.progress_percent}%` }}
             />
           </div>
@@ -191,7 +202,7 @@ export default function AdminEnrollmentsPage() {
       key: 'actions',
       header: 'Actions',
       render: () => (
-        <button type="button" className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" aria-label="More">
+        <button type="button" className="rounded p-1 text-gray-400 hover:bg-white/10 hover:text-gray-600 dark:hover:text-gray-300" aria-label="More">
           <DotsIcon />
         </button>
       ),
@@ -210,9 +221,9 @@ export default function AdminEnrollmentsPage() {
       </div>
       <div className="flex flex-wrap gap-4">
         <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Status</label>
+          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</label>
           <select
-            className="mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+            className="glass-input mt-1 text-sm"
             value={status}
             onChange={(e) => {
               setStatus(e.target.value);
@@ -226,9 +237,9 @@ export default function AdminEnrollmentsPage() {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Course</label>
+          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Course</label>
           <select
-            className="mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+            className="glass-input mt-1 text-sm"
             value={courseId}
             onChange={(e) => {
               setCourseId(e.target.value);

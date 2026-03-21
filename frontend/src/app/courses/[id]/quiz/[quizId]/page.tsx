@@ -83,17 +83,20 @@ export default function QuizPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center bg-gray-50">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+      <div className="surface-bg flex min-h-[50vh] items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-500 border-t-transparent dark:border-blue-400" />
       </div>
     );
   }
 
   if (error || !quiz) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <p className="text-rose-600">{error || 'Unavailable'}</p>
-        <Link href={`/courses/${courseId}`} className="mt-4 inline-block text-[#2563eb] hover:underline">
+      <div className="surface-bg mx-auto max-w-lg px-4 py-16 text-center">
+        <p className="text-rose-500 dark:text-rose-400">{error || 'Unavailable'}</p>
+        <Link
+          href={`/courses/${courseId}`}
+          className="mt-4 inline-block text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+        >
           Back to course
         </Link>
       </div>
@@ -101,17 +104,17 @@ export default function QuizPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen surface-bg">
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
         <Link
           href={`/courses/${courseId}`}
-          className="text-sm font-medium text-[#2563eb] hover:text-blue-700"
+          className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
         >
           ← Back to course
         </Link>
-        <h1 className="mt-4 text-2xl font-bold text-[#1e40af]">{quiz.title}</h1>
+        <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">{quiz.title}</h1>
         {quiz.description ? (
-          <p className="mt-2 text-gray-600">{quiz.description}</p>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">{quiz.description}</p>
         ) : null}
         <div className="mt-8">
           <QuizPlayer questions={quiz.questions || []} onSubmit={handleSubmit} />

@@ -213,10 +213,10 @@ export default function AdminSidebar() {
   const { logout } = useAuth();
 
   return (
-    <aside className="flex w-[200px] shrink-0 flex-col border-r border-gray-100 bg-white">
-      <div className="border-b border-gray-100 px-4 py-6">
-        <p className="text-lg font-bold tracking-tight text-[#1e40af]">Learnova</p>
-        <p className="mt-0.5 text-xs text-gray-500">Academic Curator</p>
+    <aside className="flex w-[200px] shrink-0 flex-col border-r border-white/20 dark:border-white/5 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl">
+      <div className="border-b border-white/10 dark:border-white/5 px-4 py-6">
+        <p className="text-lg font-bold tracking-tight text-blue-600 dark:text-blue-400">Learnova</p>
+        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-500">Academic Curator</p>
       </div>
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-4">
         {nav.map((item) => {
@@ -228,26 +228,36 @@ export default function AdminSidebar() {
               href={item.href}
               className={`flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition ${
                 active
-                  ? 'border-l-4 border-blue-600 bg-blue-50/50 pl-[4px] text-blue-600'
-                  : 'border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'border-l-4 border-blue-500 bg-blue-500/10 dark:bg-blue-400/10 pl-[4px] text-blue-600 dark:text-blue-400'
+                  : 'border-l-4 border-transparent text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-white/5'
               }`}
             >
-              <Icon className={`h-5 w-5 shrink-0 ${active ? 'text-blue-600' : 'text-gray-400'}`} />
+              <Icon
+                className={`h-5 w-5 shrink-0 ${
+                  active ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'
+                }`}
+              />
               <span className="leading-tight">{item.label}</span>
             </Link>
           );
         })}
       </nav>
-      <div className="border-t border-gray-100 px-2 py-4">
+      <div className="border-t border-white/10 dark:border-white/5 px-2 py-4">
         <Link
           href="/admin/settings"
-          className={`flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition hover:bg-gray-50 ${
+          className={`flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition ${
             pathname === '/admin/settings'
-              ? 'border-l-4 border-blue-600 bg-blue-50/50 pl-[4px] text-blue-600'
-              : 'border-l-4 border-transparent text-gray-600 hover:text-gray-900'
+              ? 'border-l-4 border-blue-500 bg-blue-500/10 dark:bg-blue-400/10 pl-[4px] text-blue-600 dark:text-blue-400'
+              : 'border-l-4 border-transparent text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-white/5'
           }`}
         >
-          <GearIcon className="h-5 w-5 text-gray-400" />
+          <GearIcon
+            className={`h-5 w-5 ${
+              pathname === '/admin/settings'
+                ? 'text-blue-600 dark:text-blue-400'
+                : 'text-gray-400 dark:text-gray-500'
+            }`}
+          />
           Settings
         </Link>
         <button
@@ -256,9 +266,9 @@ export default function AdminSidebar() {
             logout();
             router.replace('/login');
           }}
-          className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
+          className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium text-gray-600 transition hover:bg-white/50 dark:text-gray-400 dark:hover:bg-white/5"
         >
-          <LogoutIcon className="h-5 w-5 text-gray-400" />
+          <LogoutIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
           Logout
         </button>
       </div>

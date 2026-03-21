@@ -24,9 +24,9 @@ export default function CourseCard({ course, href, progress }: CourseCardProps) 
   return (
     <Link
       href={href}
-      className="group flex flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition hover:border-blue-100 hover:shadow-md"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-white/20 bg-white/70 shadow-lg shadow-black/5 backdrop-blur-xl transition-all duration-300 hover:border-blue-500/30 hover:shadow-xl hover:shadow-blue-500/10 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400/20 dark:shadow-black/20"
     >
-      <div className="relative aspect-video w-full bg-gray-100">
+      <div className="relative aspect-video w-full bg-gray-100 dark:bg-gray-800/50">
         {thumb ? (
           <Image
             src={thumb}
@@ -36,36 +36,36 @@ export default function CourseCard({ course, href, progress }: CourseCardProps) 
             sizes="(max-width:768px) 100vw, 33vw"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-blue-200">
+          <div className="flex h-full items-center justify-center text-blue-200 dark:text-blue-500/40">
             <svg className="h-16 w-16" fill="currentColor" viewBox="0 0 24 24">
               <path d="M4 6h16v12H4V6zm2 2v8h12V8H6zm2 2h8v4H8v-4z" />
             </svg>
           </div>
         )}
         {progress !== undefined && progress >= 0 && (
-          <div className="absolute bottom-0 left-0 right-0 bg-white/90 p-2 backdrop-blur-sm">
+          <div className="absolute bottom-0 left-0 right-0 bg-white/90 p-2 backdrop-blur-sm dark:bg-gray-900/80">
             <ProgressBar value={progress} showLabel />
           </div>
         )}
       </div>
       <div className="flex flex-1 flex-col p-4">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="line-clamp-2 flex-1 text-lg font-semibold text-gray-900 group-hover:text-[#2563eb]">
+          <h3 className="line-clamp-2 flex-1 text-lg font-semibold text-gray-900 transition group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">
             {course.title}
           </h3>
           {course.level ? (
-            <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium capitalize text-gray-700">
+            <span className="shrink-0 rounded-full border border-white/20 bg-white/50 px-2 py-0.5 text-xs font-medium capitalize text-gray-700 dark:border-white/10 dark:bg-white/10 dark:text-gray-300">
               {course.level}
             </span>
           ) : null}
         </div>
-        <p className="mt-1 line-clamp-2 flex-1 text-sm text-gray-600">{desc}</p>
-        <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+        <p className="mt-1 line-clamp-2 flex-1 text-sm text-gray-600 dark:text-gray-400">{desc}</p>
+        <div className="mt-3 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
           <span>{instructor}</span>
           <span>{lessons} lessons</span>
         </div>
         {course.category_name ? (
-          <p className="mt-2 text-xs font-medium text-[#2563eb]">{course.category_name}</p>
+          <p className="mt-2 text-xs font-medium text-blue-600 dark:text-blue-400">{course.category_name}</p>
         ) : null}
       </div>
     </Link>

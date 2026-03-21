@@ -45,8 +45,8 @@ export default function AdminQuizOptionsPage() {
       title: 'Quiz Options',
       subtitle: 'Answer options and correctness flags.',
       searchPlaceholder: 'Search option text…',
-      primaryActionLabel: '+ New Record',
-      onPrimaryAction: () => {},
+      primaryActionLabel: undefined,
+      onPrimaryAction: undefined,
     });
   }, [setHeader]);
 
@@ -96,15 +96,15 @@ export default function AdminQuizOptionsPage() {
     {
       key: 'id',
       header: 'ID',
-      render: (r) => <span className="font-mono text-gray-700">#OPT-{r.id}</span>,
+      render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">#OPT-{r.id}</span>,
     },
     {
       key: 'question',
       header: 'Linked Question',
       render: (r) => (
         <div>
-          <p className="max-w-sm text-sm text-gray-900">{r.question_text_preview}</p>
-          <p className="text-xs text-gray-500">Quiz module context</p>
+          <p className="max-w-sm text-sm text-gray-900 dark:text-white">{r.question_text_preview}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Quiz module context</p>
         </div>
       ),
     },
@@ -112,7 +112,7 @@ export default function AdminQuizOptionsPage() {
       key: 'option_text',
       header: 'Option Content',
       render: (r) => (
-        <div className="max-w-md rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-800">
+        <div className="max-w-md rounded-lg border border-white/20 bg-white/50 px-3 py-2 text-sm text-gray-800 backdrop-blur-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-200">
           {r.option_text}
         </div>
       ),
@@ -122,14 +122,14 @@ export default function AdminQuizOptionsPage() {
       header: 'Status',
       render: (r) =>
         r.is_correct ? (
-          <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+          <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400">
             <svg className="mr-1 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             CORRECT
           </span>
         ) : (
-          <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-bold text-rose-700">
+          <span className="inline-flex items-center rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-0.5 text-xs font-bold text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-400">
             <svg className="mr-1 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -146,7 +146,7 @@ export default function AdminQuizOptionsPage() {
       key: 'actions',
       header: 'Actions',
       render: () => (
-        <button type="button" className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-blue-600" aria-label="Edit">
+        <button type="button" className="rounded p-1 text-gray-500 hover:bg-white/10 hover:text-blue-600 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-blue-400" aria-label="Edit">
           <PencilIcon />
         </button>
       ),
@@ -159,9 +159,9 @@ export default function AdminQuizOptionsPage() {
     <div className="space-y-8">
       <div className="flex flex-wrap items-end gap-4">
         <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Question</label>
+          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Question</label>
           <select
-            className="mt-1 max-w-xs rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+            className="glass-input mt-1 max-w-xs text-sm"
             value={questionId}
             onChange={(e) => {
               setQuestionId(e.target.value);
@@ -177,14 +177,14 @@ export default function AdminQuizOptionsPage() {
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-gray-500">Sort Order</span>
+          <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Sort Order</span>
           <button
             type="button"
             onClick={() => setSortAsc((v) => !v)}
             className={`rounded-full border px-4 py-2 text-sm font-medium ${
               sortAsc
-                ? 'border-blue-200 bg-blue-50 text-blue-800'
-                : 'border-gray-200 bg-white text-gray-700'
+                ? 'border-blue-500/20 bg-blue-500/10 text-blue-800 dark:border-blue-400/20 dark:bg-blue-400/10 dark:text-blue-300'
+                : 'border-white/20 bg-white/50 text-gray-700 dark:border-white/10 dark:bg-white/10 dark:text-gray-300'
             }`}
           >
             {sortAsc ? 'Ascending' : 'Descending'}

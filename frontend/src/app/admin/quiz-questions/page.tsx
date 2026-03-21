@@ -20,7 +20,7 @@ const PAGE_SIZE = 10;
 
 function DragHandle() {
   return (
-    <span className="inline-flex cursor-grab text-gray-400" aria-hidden>
+    <span className="inline-flex cursor-grab text-gray-400 dark:text-gray-500" aria-hidden>
       <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
         <path d="M8 6a2 2 0 11-4 0 2 2 0 014 0zm0 6a2 2 0 11-4 0 2 2 0 014 0zm0 6a2 2 0 11-4 0 2 2 0 014 0zm8-12a2 2 0 11-4 0 2 2 0 014 0zm0 6a2 2 0 11-4 0 2 2 0 014 0zm0 6a2 2 0 11-4 0 2 2 0 014 0z" />
       </svg>
@@ -58,8 +58,8 @@ export default function AdminQuizQuestionsPage() {
       title: 'Quiz Questions',
       subtitle: 'Question bank linked to assessments.',
       searchPlaceholder: 'Search question text or quiz…',
-      primaryActionLabel: '+ New Record',
-      onPrimaryAction: () => {},
+      primaryActionLabel: undefined,
+      onPrimaryAction: undefined,
     });
   }, [setHeader]);
 
@@ -97,15 +97,15 @@ export default function AdminQuizQuestionsPage() {
       {
         key: 'id',
         header: 'ID',
-        render: (r) => <span className="font-mono text-gray-700">#Q-{r.id}</span>,
+        render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">#Q-{r.id}</span>,
       },
       {
         key: 'quiz',
         header: 'Quiz Title',
         render: (r) => (
           <div>
-            <p className="font-medium text-gray-900">{r.quiz_title}</p>
-            <p className="text-xs text-gray-500">Assessment question</p>
+            <p className="font-medium text-gray-900 dark:text-white">{r.quiz_title}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Assessment question</p>
           </div>
         ),
       },
@@ -113,14 +113,14 @@ export default function AdminQuizQuestionsPage() {
         key: 'question_text',
         header: 'Question Text',
         render: (r) => (
-          <p className="max-w-md truncate text-gray-800">{r.question_text}</p>
+          <p className="max-w-md truncate text-gray-800 dark:text-gray-200">{r.question_text}</p>
         ),
       },
       {
         key: 'question_type',
         header: 'Type',
         render: (r) => (
-          <span className="inline-flex rounded-full border border-blue-100 bg-blue-50 px-2.5 py-0.5 text-xs font-semibold uppercase text-blue-800">
+          <span className="inline-flex rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold uppercase text-blue-800 dark:border-blue-400/20 dark:bg-blue-400/10 dark:text-blue-300">
             {(r.question_type || 'mcq').toUpperCase()}
           </span>
         ),
@@ -144,7 +144,7 @@ export default function AdminQuizQuestionsPage() {
         key: 'actions',
         header: 'Actions',
         render: () => (
-          <button type="button" className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-blue-600" aria-label="Edit">
+          <button type="button" className="rounded p-1 text-gray-500 hover:bg-white/10 hover:text-blue-600 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-blue-400" aria-label="Edit">
             <PencilIcon />
           </button>
         ),
@@ -160,9 +160,9 @@ export default function AdminQuizQuestionsPage() {
       <div className="space-y-6">
         <div className="flex flex-wrap gap-4">
           <div>
-            <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Quiz</label>
+            <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Quiz</label>
             <select
-              className="mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+              className="glass-input mt-1 text-sm"
               value={quizTitle}
               onChange={(e) => {
                 setQuizTitle(e.target.value);
@@ -188,10 +188,10 @@ export default function AdminQuizQuestionsPage() {
           itemName="questions"
         />
       </div>
-      <aside className="h-fit rounded-xl border border-dashed border-blue-100 bg-white p-6 shadow-sm">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Database Health</p>
-        <p className="mt-2 text-3xl font-semibold text-[#1e40af]">{loading ? '—' : health}</p>
-        <p className="mt-1 text-sm text-gray-500">Total questions indexed</p>
+      <aside className="glass-card h-fit border border-dashed border-blue-200/50 p-6 dark:border-blue-500/20">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Database Health</p>
+        <p className="mt-2 text-3xl font-semibold text-blue-600 dark:text-blue-400">{loading ? '—' : health}</p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Total questions indexed</p>
       </aside>
     </div>
   );

@@ -48,8 +48,8 @@ export default function AdminQuizAnswersPage() {
       title: 'Quiz Answers Tracking',
       subtitle: 'Per-question responses linked to attempts.',
       searchPlaceholder: 'Search question text…',
-      primaryActionLabel: '+ New Record',
-      onPrimaryAction: () => {},
+      primaryActionLabel: undefined,
+      onPrimaryAction: undefined,
     });
   }, [setHeader]);
 
@@ -111,13 +111,13 @@ export default function AdminQuizAnswersPage() {
       {
         key: 'id',
         header: 'ID',
-        render: (r) => <span className="font-mono text-gray-700">ANS-{r.id}</span>,
+        render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">ANS-{r.id}</span>,
       },
       {
         key: 'attempt',
         header: 'Attempt ID',
         render: (r) => (
-          <span className="inline-flex rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 font-mono text-xs text-gray-800">
+          <span className="inline-flex rounded-md border border-white/20 bg-white/50 px-2 py-0.5 font-mono text-xs text-gray-800 dark:border-white/10 dark:bg-white/10 dark:text-gray-200">
             ATT-{r.attempt_id}
           </span>
         ),
@@ -127,29 +127,29 @@ export default function AdminQuizAnswersPage() {
         header: 'Question',
         render: (r) => (
           <div>
-            <p className="max-w-sm truncate text-gray-900">{r.question_text_preview}</p>
-            <p className="text-xs text-gray-500">Course assessment</p>
+            <p className="max-w-sm truncate text-gray-900 dark:text-white">{r.question_text_preview}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Course assessment</p>
           </div>
         ),
       },
       {
         key: 'selected',
         header: 'Selected Option',
-        render: (r) => <span className="text-gray-800">{r.selected_option_text}</span>,
+        render: (r) => <span className="text-gray-800 dark:text-gray-200">{r.selected_option_text}</span>,
       },
       {
         key: 'correct',
         header: 'Correct',
         render: (r) =>
           r.is_correct ? (
-            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+            <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400">
               <svg className="mr-1 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
               YES
             </span>
           ) : (
-            <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-bold text-rose-700">
+            <span className="inline-flex items-center rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-0.5 text-xs font-bold text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-400">
               <svg className="mr-1 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -170,7 +170,7 @@ export default function AdminQuizAnswersPage() {
         key: 'actions',
         header: 'Actions',
         render: () => (
-          <button type="button" className="rounded p-1 text-gray-400 hover:bg-gray-100" aria-label="More">
+          <button type="button" className="rounded p-1 text-gray-400 hover:bg-white/10 dark:hover:text-gray-300" aria-label="More">
             <DotsIcon />
           </button>
         ),
@@ -229,9 +229,9 @@ export default function AdminQuizAnswersPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Attempt</label>
+            <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Attempt</label>
             <select
-              className="mt-1 max-w-xs rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+              className="glass-input mt-1 max-w-xs text-sm"
               value={attemptId}
               onChange={(e) => {
                 setAttemptId(e.target.value);
@@ -247,9 +247,9 @@ export default function AdminQuizAnswersPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Status</label>
+            <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</label>
             <select
-              className="mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+              className="glass-input mt-1 text-sm"
               defaultValue=""
               disabled
               title="Requires API filter for is_correct"
@@ -261,24 +261,24 @@ export default function AdminQuizAnswersPage() {
           </div>
           <button
             type="button"
-            className="rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm text-gray-600"
+            className="rounded-lg border border-dashed border-gray-300/80 px-4 py-2 text-sm text-gray-600 dark:border-white/20 dark:text-gray-400"
           >
             More Filters
           </button>
           <button
             type="button"
             onClick={exportCsv}
-            className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50"
+            className="btn-secondary px-4 py-2 text-sm font-medium text-gray-800 shadow-sm dark:text-gray-200"
           >
             Export CSV
           </button>
         </div>
-        <div className="flex rounded-lg border border-gray-200 bg-white p-1">
+        <div className="flex rounded-xl border border-white/20 bg-white/70 p-1 shadow-lg shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-white/5 dark:shadow-black/20">
           <button
             type="button"
             onClick={() => setView('table')}
             className={`rounded-md px-4 py-2 text-sm font-medium ${
-              view === 'table' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              view === 'table' ? 'bg-blue-600 text-white dark:bg-blue-500' : 'text-gray-600 hover:bg-white/50 dark:text-gray-400 dark:hover:bg-white/10'
             }`}
           >
             Table View
@@ -287,7 +287,7 @@ export default function AdminQuizAnswersPage() {
             type="button"
             onClick={() => setView('analytics')}
             className={`rounded-md px-4 py-2 text-sm font-medium ${
-              view === 'analytics' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              view === 'analytics' ? 'bg-blue-600 text-white dark:bg-blue-500' : 'text-gray-600 hover:bg-white/50 dark:text-gray-400 dark:hover:bg-white/10'
             }`}
           >
             Analytics
@@ -295,22 +295,22 @@ export default function AdminQuizAnswersPage() {
         </div>
       </div>
       {view === 'analytics' ? (
-        <div className="rounded-xl border border-dashed border-blue-100 bg-white p-8">
-          <p className="text-sm font-medium text-gray-700">Response mix (current page)</p>
+        <div className="glass-card rounded-2xl border border-dashed border-blue-200/50 p-8 dark:border-blue-500/20">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Response mix (current page)</p>
           <div className="mt-6 flex h-40 items-end gap-8">
             <div className="flex flex-col items-center gap-2">
               <div
-                className="w-16 rounded-t bg-emerald-500"
+                className="w-16 rounded-t bg-emerald-500 dark:bg-emerald-400"
                 style={{ height: `${Math.max(8, (correctN / Math.max(1, correctN + wrongN)) * 160)}px` }}
               />
-              <span className="text-xs text-gray-600">Correct ({correctN})</span>
+              <span className="text-xs text-gray-600 dark:text-gray-400">Correct ({correctN})</span>
             </div>
             <div className="flex flex-col items-center gap-2">
               <div
-                className="w-16 rounded-t bg-rose-400"
+                className="w-16 rounded-t bg-rose-400 dark:bg-rose-500"
                 style={{ height: `${Math.max(8, (wrongN / Math.max(1, correctN + wrongN)) * 160)}px` }}
               />
-              <span className="text-xs text-gray-600">Incorrect ({wrongN})</span>
+              <span className="text-xs text-gray-600 dark:text-gray-400">Incorrect ({wrongN})</span>
             </div>
           </div>
         </div>

@@ -60,19 +60,19 @@ export default function QuizPlayer({ questions, onSubmit }: QuizPlayerProps) {
 
   if (result) {
     return (
-      <div className="rounded-xl border border-dashed border-blue-100 bg-white p-6 shadow-sm">
-        <h3 className="text-xl font-semibold text-[#1e40af]">Quiz results</h3>
+      <div className="rounded-2xl border border-white/20 bg-white/70 p-6 shadow-lg shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-white/5 dark:shadow-black/20">
+        <h3 className="text-xl font-semibold text-blue-600 dark:text-blue-400">Quiz results</h3>
         <div className="mt-2 space-y-1">
-          <p className="text-lg text-[#2563eb]">
+          <p className="text-lg text-blue-600 dark:text-blue-400">
             Score: {result.score}
             {result.totalMarks ? ` / ${result.totalMarks}` : ''}
           </p>
           {result.percentage !== undefined && (
-            <p className="text-sm text-gray-700">{Math.round(result.percentage)}% correct</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300">{Math.round(result.percentage)}% correct</p>
           )}
           {result.isPassed !== undefined && (
             <p
-              className={`text-sm font-medium ${result.isPassed ? 'text-emerald-700' : 'text-rose-700'}`}
+              className={`text-sm font-medium ${result.isPassed ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}
             >
               {result.isPassed ? 'Passed' : 'Not passed'}
             </p>
@@ -86,20 +86,22 @@ export default function QuizPlayer({ questions, onSubmit }: QuizPlayerProps) {
               <li
                 key={qu.id}
                 className={`rounded-lg border p-3 ${
-                  ok ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'
+                  ok
+                    ? 'border-emerald-200/80 bg-emerald-50/80 dark:border-emerald-500/30 dark:bg-emerald-500/10'
+                    : 'border-rose-200/80 bg-rose-50/80 dark:border-rose-500/30 dark:bg-rose-500/10'
                 }`}
               >
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
                   {i + 1}. {qu.question_text}
                 </p>
                 <p className="mt-1 text-sm">
                   {ok ? (
-                    <span className="text-emerald-700">Correct</span>
+                    <span className="text-emerald-600 dark:text-emerald-400">Correct</span>
                   ) : (
-                    <span className="text-rose-700">Incorrect</span>
+                    <span className="text-rose-600 dark:text-rose-400">Incorrect</span>
                   )}
                   {pq?.marksAwarded !== undefined && (
-                    <span className="ml-2 text-gray-600">({pq.marksAwarded} marks)</span>
+                    <span className="ml-2 text-gray-600 dark:text-gray-400">({pq.marksAwarded} marks)</span>
                   )}
                 </p>
               </li>
@@ -111,23 +113,23 @@ export default function QuizPlayer({ questions, onSubmit }: QuizPlayerProps) {
   }
 
   if (!q) {
-    return <p className="text-gray-600">No questions in this quiz.</p>;
+    return <p className="text-gray-600 dark:text-gray-400">No questions in this quiz.</p>;
   }
 
   return (
-    <div className="rounded-xl border border-dashed border-blue-100 bg-white p-6 shadow-sm">
-      <p className="text-sm text-gray-500">
+    <div className="rounded-2xl border border-white/20 bg-white/70 p-6 shadow-lg shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-white/5 dark:shadow-black/20">
+      <p className="text-sm text-gray-500 dark:text-gray-400">
         Question {step + 1} of {sorted.length}
       </p>
-      <h3 className="mt-2 text-lg font-semibold text-gray-900">{q.question_text}</h3>
+      <h3 className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{q.question_text}</h3>
       <div className="mt-4 space-y-2">
         {(q.options || []).map((opt) => (
           <label
             key={opt.id}
-            className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition ${
+            className={`flex cursor-pointer items-center gap-3 rounded-lg border border-white/20 px-3 py-2 transition dark:border-white/10 ${
               selected[q.id] === opt.id
-                ? 'border-blue-500 bg-blue-50'
-                : 'border-gray-200 hover:border-gray-300'
+                ? 'border-blue-500 bg-blue-500/10 dark:border-blue-400 dark:bg-blue-400/10'
+                : 'hover:border-white/30 dark:hover:border-white/20'
             }`}
           >
             <input
@@ -135,20 +137,16 @@ export default function QuizPlayer({ questions, onSubmit }: QuizPlayerProps) {
               name={`q-${q.id}`}
               checked={selected[q.id] === opt.id}
               onChange={() => setSelected((prev) => ({ ...prev, [q.id]: opt.id }))}
-              className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:text-blue-400"
             />
-            <span className="text-sm text-gray-800">{opt.option_text}</span>
+            <span className="text-sm text-gray-800 dark:text-gray-200">{opt.option_text}</span>
           </label>
         ))}
       </div>
-      {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-rose-600 dark:text-rose-400">{error}</p>}
       <div className="mt-6 flex flex-wrap gap-3">
         {step > 0 && (
-          <button
-            type="button"
-            onClick={() => setStep((s) => s - 1)}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
+          <button type="button" onClick={() => setStep((s) => s - 1)} className="btn-secondary">
             Back
           </button>
         )}
@@ -157,7 +155,7 @@ export default function QuizPlayer({ questions, onSubmit }: QuizPlayerProps) {
             type="button"
             onClick={() => setStep((s) => s + 1)}
             disabled={!selected[q.id]}
-            className="rounded-lg bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+            className="btn-primary disabled:opacity-50"
           >
             Next
           </button>
@@ -167,7 +165,7 @@ export default function QuizPlayer({ questions, onSubmit }: QuizPlayerProps) {
             type="button"
             onClick={handleFinalSubmit}
             disabled={submitting || !selected[q.id]}
-            className="rounded-lg bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+            className="btn-primary disabled:opacity-50"
           >
             {submitting ? 'Submitting…' : 'Submit quiz'}
           </button>

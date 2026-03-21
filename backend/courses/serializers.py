@@ -154,6 +154,8 @@ class CourseWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course
         fields = [
+            'id',
+            'slug',
             'title',
             'short_description',
             'description',
@@ -165,6 +167,7 @@ class CourseWriteSerializer(serializers.ModelSerializer):
             'price',
             'duration_minutes',
         ]
+        read_only_fields = ['id', 'slug']
 
 
 class EnrollmentSerializer(serializers.ModelSerializer):

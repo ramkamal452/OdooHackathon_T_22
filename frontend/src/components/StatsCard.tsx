@@ -17,28 +17,30 @@ export default function StatsCard({
 }: StatsCardProps) {
   const variantRing =
     variant === 'success'
-      ? 'border-emerald-100'
+      ? 'border-emerald-200/80 dark:border-emerald-500/30'
       : variant === 'warning'
-        ? 'border-amber-100'
-        : 'border-blue-100';
+        ? 'border-amber-200/80 dark:border-amber-500/30'
+        : 'border-white/20 dark:border-white/10';
 
   return (
     <div
-      className={`rounded-xl border border-dashed ${variantRing} bg-white px-4 py-4 shadow-sm`}
+      className={`rounded-2xl border bg-white/70 px-5 py-5 shadow-lg shadow-black/5 backdrop-blur-xl dark:bg-white/5 dark:shadow-black/20 ${variantRing}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           {label}
         </p>
-        {icon ? <span className="text-blue-600">{icon}</span> : null}
+        {icon ? <span className="text-blue-500 dark:text-blue-400">{icon}</span> : null}
       </div>
-      <p className="mt-2 text-2xl font-semibold tabular-nums text-[#1e40af]">
+      <p className="mt-2 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">
         {value}
       </p>
       {trend ? (
         <p
           className={`mt-1 text-xs font-medium ${
-            trend.positive ? 'text-emerald-600' : 'text-rose-600'
+            trend.positive
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-rose-600 dark:text-rose-400'
           }`}
         >
           {trend.value}

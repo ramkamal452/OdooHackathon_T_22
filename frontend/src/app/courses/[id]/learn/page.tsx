@@ -150,18 +150,21 @@ export default function LearnPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center bg-gray-50">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+      <div className="surface-bg flex min-h-[50vh] items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-500 border-t-transparent dark:border-blue-400" />
       </div>
     );
   }
 
   if (error && !course) {
     return (
-      <div className="p-8 text-center text-rose-600">
+      <div className="surface-bg p-8 text-center text-rose-500 dark:text-rose-400">
         {error}
         <div className="mt-4">
-          <Link href={`/courses/${courseId}`} className="text-[#2563eb] hover:underline">
+          <Link
+            href={`/courses/${courseId}`}
+            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+          >
             Back to course
           </Link>
         </div>
@@ -171,9 +174,12 @@ export default function LearnPage() {
 
   if (!course || !lesson) {
     return (
-      <div className="p-8 text-center text-gray-600">
+      <div className="surface-bg p-8 text-center text-gray-600 dark:text-gray-400">
         <p>No lessons in this course yet.</p>
-        <Link href={`/courses/${courseId}`} className="mt-4 inline-block text-[#2563eb] hover:underline">
+        <Link
+          href={`/courses/${courseId}`}
+          className="mt-4 inline-block text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+        >
           Back to course
         </Link>
       </div>
@@ -183,18 +189,18 @@ export default function LearnPage() {
   const resource = mediaUrl(lesson.resource_url);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen surface-bg">
       <div className="mx-auto flex max-w-7xl flex-col lg:flex-row">
-        <aside className="w-full border-b border-gray-200 bg-white p-4 lg:w-80 lg:border-b-0 lg:border-r">
+        <aside className="w-full border-b border-white/20 bg-white/80 p-4 backdrop-blur-xl dark:border-white/5 dark:bg-gray-900/80 lg:w-80 lg:border-b-0 lg:border-r">
           <Link
             href={`/courses/${courseId}`}
-            className="text-sm font-medium text-[#2563eb] hover:text-blue-700"
+            className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
           >
             ← Back to course
           </Link>
-          <h2 className="mt-4 line-clamp-2 text-lg font-semibold text-[#1e40af]">{course.title}</h2>
+          <h2 className="mt-4 line-clamp-2 text-lg font-semibold text-gray-900 dark:text-white">{course.title}</h2>
           <div className="mt-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Progress</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Progress</p>
             <ProgressBar value={progressPct} className="mt-1" />
           </div>
           <div className="mt-6 max-h-[calc(100vh-12rem)] overflow-y-auto pr-1">
@@ -208,9 +214,9 @@ export default function LearnPage() {
         </aside>
 
         <div className="flex-1 p-4 sm:p-8">
-          <h1 className="text-2xl font-bold text-[#1e40af]">{lesson.title}</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{lesson.title}</h1>
 
-          <div className="mt-8 rounded-xl border border-dashed border-blue-100 bg-white p-6 shadow-sm">
+          <div className="glass-card mt-8 p-6">
             {lesson.content_type === 'video' && lesson.video_url && (
               <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
                 <iframe
@@ -223,7 +229,7 @@ export default function LearnPage() {
               </div>
             )}
             {lesson.content_type === 'text' && (
-              <div className="prose prose-sm max-w-none text-gray-800">
+              <div className="prose prose-sm max-w-none text-gray-800 dark:prose-invert dark:text-gray-200">
                 <p className="whitespace-pre-wrap">{lesson.content_body}</p>
               </div>
             )}
@@ -233,7 +239,7 @@ export default function LearnPage() {
                   href={resource}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-medium text-[#2563eb] hover:underline"
+                  className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                 >
                   Open PDF
                 </a>
@@ -246,13 +252,13 @@ export default function LearnPage() {
                     href={resource}
                     target="_blank"
                     rel="noreferrer"
-                    className="font-medium text-[#2563eb] hover:underline"
+                    className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                   >
                     {resource}
                   </a>
                 ) : null}
                 {lesson.content_body ? (
-                  <p className="whitespace-pre-wrap text-gray-700">{lesson.content_body}</p>
+                  <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300">{lesson.content_body}</p>
                 ) : null}
               </div>
             )}
@@ -263,7 +269,7 @@ export default function LearnPage() {
               type="button"
               onClick={markComplete}
               disabled={pending || !!completedMap.get(lesson.id)}
-              className="rounded-lg bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+              className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
             >
               {completedMap.get(lesson.id) ? 'Completed' : pending ? 'Saving…' : 'Mark complete'}
             </button>
@@ -271,12 +277,12 @@ export default function LearnPage() {
               type="button"
               onClick={nextLesson}
               disabled={!hasNext}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-40"
+              className="btn-secondary px-4 py-2 text-sm disabled:opacity-40"
             >
               Next lesson
             </button>
           </div>
-          {error && <p className="mt-4 text-sm text-rose-600">{error}</p>}
+          {error && <p className="mt-4 text-sm text-rose-500 dark:text-rose-400">{error}</p>}
         </div>
       </div>
     </div>

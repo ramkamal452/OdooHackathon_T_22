@@ -1,12 +1,16 @@
 'use client';
 
 import DataTable, { type Column } from '@/components/DataTable';
+import Modal from '@/components/Modal';
 import Pagination from '@/components/Pagination';
 import StatsCard from '@/components/StatsCard';
+import { useToast } from '@/components/Toast';
 import { useAdminPage } from '@/app/admin/AdminPageContext';
 import { formatDate } from '@/lib/admin-format';
 import { fetchPage } from '@/lib/admin-fetch';
-import { api } from '@/lib/api';
+import { api, unwrapList } from '@/lib/api';
+import { isAxiosError } from 'axios';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 interface QuizRow {
@@ -21,6 +25,27 @@ interface QuizRow {
 }
 
 const PAGE_SIZE = 10;
+
+function errorMessage(err: unknown): string {
+  if (isAxiosError(err)) {
+    const data = err.response?.data;
+    if (typeof data === 'string') return data;
+    if (data && typeof data === 'object' && 'detail' in data && typeof (data as { detail: unknown }).detail === 'string') {
+      return (data as { detail: string }).detail;
+    }
+    if (data && typeof data === 'object') {
+      const parts: string[] = [];
+      for (const [k, v] of Object.entries(data)) {
+        if (Array.isArray(v)) parts.push(`${k}: ${v.join(', ')}`);
+        else if (v && typeof v === 'object') parts.push(`${k}: ${JSON.stringify(v)}`);
+        else parts.push(`${k}: ${String(v)}`);
+      }
+      if (parts.length) return parts.join(' ');
+    }
+  }
+  if (err instanceof Error) return err.message;
+  return 'Something went wrong.';
+}
 
 function PencilIcon() {
   return (
@@ -62,6 +87,8 @@ function TrashIcon() {
 }
 
 export default function AdminQuizzesPage() {
+  const router = useRouter();
+  const { toast } = useToast();
   const { setHeader, search } = useAdminPage();
   const [page, setPage] = useState(1);
   const [courseId, setCourseId] = useState('');
@@ -78,13 +105,25 @@ export default function AdminQuizzesPage() {
   });
   const [courses, setCourses] = useState<{ id: number; title: string }[]>([]);
 
+  const [modalOpen, setModalOpen] = useState(false);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [modalCourses, setModalCourses] = useState<{ id: number; title: string }[]>([]);
+  const [createCourseId, setCreateCourseId] = useState('');
+  const [createTitle, setCreateTitle] = useState('');
+  const [createDescription, setCreateDescription] = useState('');
+  const [createPassPct, setCreatePassPct] = useState('70');
+  const [createQuestionText, setCreateQuestionText] = useState('');
+  const [createOpt0, setCreateOpt0] = useState('');
+  const [createOpt1, setCreateOpt1] = useState('');
+  const [createCorrectIndex, setCreateCorrectIndex] = useState(0);
+
   useEffect(() => {
     setHeader({
       title: 'Assessment Library',
       subtitle: 'Quizzes, pass rates, and publish state.',
       searchPlaceholder: 'Search quizzes or courses…',
-      primaryActionLabel: '+ New Record',
-      onPrimaryAction: () => {},
+      primaryActionLabel: '+ New Quiz',
+      onPrimaryAction: () => setModalOpen(true),
     });
   }, [setHeader]);
 
@@ -93,6 +132,28 @@ export default function AdminQuizzesPage() {
       const data = await fetchPage<{ id: number; title: string }>('/api/admin/courses/', { page: 1 });
       setCourses(data.results.map((c) => ({ id: c.id, title: c.title })));
     })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get<unknown>('/api/courses/');
+        setModalCourses(unwrapList<{ id: number; title: string }>(data));
+      } catch {
+        setModalCourses([]);
+      }
+    })();
+  }, []);
+
+  const resetCreateForm = useCallback(() => {
+    setCreateCourseId('');
+    setCreateTitle('');
+    setCreateDescription('');
+    setCreatePassPct('70');
+    setCreateQuestionText('');
+    setCreateOpt0('');
+    setCreateOpt1('');
+    setCreateCorrectIndex(0);
   }, []);
 
   const loadStats = useCallback(async () => {
@@ -142,33 +203,157 @@ export default function AdminQuizzesPage() {
     loadTable();
   }, [loadTable]);
 
+  const handleEditQuiz = useCallback(
+    async (quizId: number) => {
+      try {
+        const { data } = await api.get<{ course: { id: number } }>(`/api/quizzes/${quizId}/`);
+        const cid = data.course?.id;
+        if (cid != null) {
+          router.push(`/dashboard/instructor/courses/${cid}/edit`);
+          toast('Opening course editor…', 'info');
+        } else {
+          toast('Could not resolve course for this quiz.', 'error');
+        }
+      } catch (e) {
+        toast(errorMessage(e), 'error');
+      }
+    },
+    [router, toast]
+  );
+
+  const handleCopyQuizLink = useCallback(
+    async (quizId: number) => {
+      try {
+        const { data } = await api.get<{ course: { id: number } }>(`/api/quizzes/${quizId}/`);
+        const cid = data.course?.id;
+        if (cid == null) {
+          toast('Could not resolve course for this quiz.', 'error');
+          return;
+        }
+        const path = `/courses/${cid}/quiz/${quizId}`;
+        const url = typeof window !== 'undefined' ? `${window.location.origin}${path}` : path;
+        await navigator.clipboard.writeText(url);
+        toast('Quiz link copied to clipboard.', 'success');
+      } catch (e) {
+        toast(errorMessage(e), 'error');
+      }
+    },
+    [toast]
+  );
+
+  const handleDeleteQuiz = useCallback(
+    async (quizId: number) => {
+      if (!confirm('Delete this quiz? This cannot be undone.')) return;
+      try {
+        await api.delete(`/api/quizzes/${quizId}/`);
+        toast('Quiz deleted.', 'success');
+        await loadTable();
+        await loadStats();
+      } catch (e) {
+        toast(errorMessage(e), 'error');
+      }
+    },
+    [loadTable, loadStats, toast]
+  );
+
+  const handleCreateQuiz = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      const cid = Number(createCourseId);
+      if (!cid) {
+        toast('Please select a course.', 'error');
+        return;
+      }
+      const title = createTitle.trim();
+      if (!title) {
+        toast('Title is required.', 'error');
+        return;
+      }
+      const qText = createQuestionText.trim();
+      if (!qText) {
+        toast('Question text is required.', 'error');
+        return;
+      }
+      const o0 = createOpt0.trim();
+      const o1 = createOpt1.trim();
+      if (!o0 || !o1) {
+        toast('Both answer options are required.', 'error');
+        return;
+      }
+      const passPct = Math.min(100, Math.max(0, Number(createPassPct) || 70));
+      setCreateSubmitting(true);
+      try {
+        await api.post(`/api/quizzes/course/${cid}/`, {
+          title,
+          description: createDescription.trim(),
+          pass_percentage: passPct,
+          is_published: false,
+          questions: [
+            {
+              question_text: qText,
+              marks: 1,
+              sort_order: 0,
+              options: [
+                { option_text: o0, is_correct: createCorrectIndex === 0 },
+                { option_text: o1, is_correct: createCorrectIndex === 1 },
+              ],
+            },
+          ],
+        });
+        toast('Quiz created.', 'success');
+        setModalOpen(false);
+        resetCreateForm();
+        await loadTable();
+        await loadStats();
+      } catch (err) {
+        toast(errorMessage(err), 'error');
+      } finally {
+        setCreateSubmitting(false);
+      }
+    },
+    [
+      createCourseId,
+      createTitle,
+      createDescription,
+      createPassPct,
+      createQuestionText,
+      createOpt0,
+      createOpt1,
+      createCorrectIndex,
+      loadTable,
+      loadStats,
+      resetCreateForm,
+      toast,
+    ]
+  );
+
   const columns: Column<QuizRow>[] = [
     {
       key: 'id',
       header: 'ID',
-      render: (r) => <span className="font-mono text-gray-700">#QZ-{r.id}</span>,
+      render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">#QZ-{r.id}</span>,
     },
     {
       key: 'ctx',
       header: 'Course / Module',
       render: (r) => (
         <div>
-          <p className="font-medium text-gray-900">{r.course_title}</p>
+          <p className="font-medium text-gray-900 dark:text-white">{r.course_title}</p>
           {r.module_title ? (
-            <p className="text-xs text-gray-500">Module: {r.module_title}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Module: {r.module_title}</p>
           ) : null}
         </div>
       ),
     },
-    { key: 'title', header: 'Quiz Title', render: (r) => <span className="font-medium">{r.title}</span> },
+    { key: 'title', header: 'Quiz Title', render: (r) => <span className="font-medium text-gray-900 dark:text-white">{r.title}</span> },
     {
       key: 'pass',
       header: 'Pass %',
       render: (r) => (
         <div className="flex items-center gap-2">
-          <div className="h-1.5 w-20 rounded-full bg-gray-200">
+          <div className="h-1.5 w-20 rounded-full bg-gray-200 dark:bg-white/10">
             <div
-              className="h-full rounded-full bg-blue-600"
+              className="h-full rounded-full bg-blue-600 dark:bg-blue-500"
               style={{ width: `${r.pass_percentage}%` }}
             />
           </div>
@@ -181,11 +366,11 @@ export default function AdminQuizzesPage() {
       header: 'Status',
       render: (r) =>
         r.is_published ? (
-          <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+          <span className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400">
             PUBLISHED
           </span>
         ) : (
-          <span className="inline-flex rounded-full border border-gray-200 bg-gray-100 px-2.5 py-0.5 text-xs font-bold text-gray-600">
+          <span className="inline-flex rounded-full border border-gray-500/20 bg-gray-500/10 px-2.5 py-0.5 text-xs font-bold text-gray-600 dark:border-gray-400/10 dark:bg-gray-400/10 dark:text-gray-400">
             DRAFT
           </span>
         ),
@@ -198,15 +383,30 @@ export default function AdminQuizzesPage() {
     {
       key: 'actions',
       header: 'Actions',
-      render: () => (
-        <div className="flex items-center gap-2 text-gray-500">
-          <button type="button" className="rounded p-1 hover:bg-gray-100 hover:text-blue-600" aria-label="Edit">
+      render: (r) => (
+        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+          <button
+            type="button"
+            className="rounded p-1 hover:bg-white/10 hover:text-blue-600 dark:hover:bg-white/10 dark:hover:text-blue-400"
+            aria-label="Edit"
+            onClick={() => handleEditQuiz(r.id)}
+          >
             <PencilIcon />
           </button>
-          <button type="button" className="rounded p-1 hover:bg-gray-100 hover:text-blue-600" aria-label="Copy">
+          <button
+            type="button"
+            className="rounded p-1 hover:bg-white/10 hover:text-blue-600 dark:hover:bg-white/10 dark:hover:text-blue-400"
+            aria-label="Copy quiz link"
+            onClick={() => handleCopyQuizLink(r.id)}
+          >
             <CopyIcon />
           </button>
-          <button type="button" className="rounded p-1 hover:bg-gray-100 hover:text-rose-600" aria-label="Delete">
+          <button
+            type="button"
+            className="rounded p-1 hover:bg-white/10 hover:text-rose-600 dark:hover:text-rose-400"
+            aria-label="Delete"
+            onClick={() => handleDeleteQuiz(r.id)}
+          >
             <TrashIcon />
           </button>
         </div>
@@ -218,6 +418,133 @@ export default function AdminQuizzesPage() {
 
   return (
     <div className="space-y-8">
+      <Modal
+        open={modalOpen}
+        onClose={() => {
+          setModalOpen(false);
+          resetCreateForm();
+        }}
+        title="New quiz"
+        subtitle="Create a quiz with a starter question. You can add more on the course edit page."
+        size="lg"
+      >
+        <form className="space-y-4" onSubmit={handleCreateQuiz}>
+          <div>
+            <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Course *</label>
+            <select
+              className="glass-input mt-1 w-full text-sm"
+              required
+              value={createCourseId}
+              onChange={(e) => setCreateCourseId(e.target.value)}
+            >
+              <option value="">Select a course</option>
+              {modalCourses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Title *</label>
+            <input
+              type="text"
+              className="glass-input mt-1 w-full text-sm"
+              required
+              value={createTitle}
+              onChange={(e) => setCreateTitle(e.target.value)}
+              placeholder="Quiz title"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Description</label>
+            <textarea
+              className="glass-input mt-1 min-h-[72px] w-full resize-y text-sm"
+              value={createDescription}
+              onChange={(e) => setCreateDescription(e.target.value)}
+              placeholder="Optional description"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Pass percentage</label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              className="glass-input mt-1 w-full text-sm"
+              value={createPassPct}
+              onChange={(e) => setCreatePassPct(e.target.value)}
+            />
+          </div>
+          <div className="border-t border-gray-100 pt-4 dark:border-white/10">
+            <p className="mb-2 text-sm font-medium text-gray-900 dark:text-white">Starter question</p>
+            <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Question text *</label>
+            <textarea
+              className="glass-input mt-1 min-h-[64px] w-full resize-y text-sm"
+              required
+              value={createQuestionText}
+              onChange={(e) => setCreateQuestionText(e.target.value)}
+              placeholder="Your first question"
+            />
+            <div className="mt-3 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  className="glass-input min-w-[200px] flex-1 text-sm"
+                  value={createOpt0}
+                  onChange={(e) => setCreateOpt0(e.target.value)}
+                  placeholder="Option A"
+                  aria-label="Option A"
+                />
+                <label className="flex cursor-pointer items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+                  <input
+                    type="radio"
+                    name="correct-opt"
+                    checked={createCorrectIndex === 0}
+                    onChange={() => setCreateCorrectIndex(0)}
+                  />
+                  Correct
+                </label>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  className="glass-input min-w-[200px] flex-1 text-sm"
+                  value={createOpt1}
+                  onChange={(e) => setCreateOpt1(e.target.value)}
+                  placeholder="Option B"
+                  aria-label="Option B"
+                />
+                <label className="flex cursor-pointer items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+                  <input
+                    type="radio"
+                    name="correct-opt"
+                    checked={createCorrectIndex === 1}
+                    onChange={() => setCreateCorrectIndex(1)}
+                  />
+                  Correct
+                </label>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              className="btn-secondary px-4 py-2 text-sm font-medium"
+              onClick={() => {
+                setModalOpen(false);
+                resetCreateForm();
+              }}
+            >
+              Cancel
+            </button>
+            <button type="submit" className="btn-primary px-4 py-2 text-sm font-medium" disabled={createSubmitting}>
+              {createSubmitting ? 'Creating…' : 'Create quiz'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatsCard label="Total Quizzes" value={statsLoading ? '—' : stats.total} />
         <StatsCard label="Avg. Pass Rate" value={statsLoading ? '—' : `${stats.avgPass}%`} />
@@ -226,9 +553,9 @@ export default function AdminQuizzesPage() {
       </div>
       <div className="flex flex-wrap items-end gap-4">
         <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Course</label>
+          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Course</label>
           <select
-            className="mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+            className="glass-input mt-1 text-sm"
             value={courseId}
             onChange={(e) => {
               setCourseId(e.target.value);
@@ -244,9 +571,9 @@ export default function AdminQuizzesPage() {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Date Range</label>
+          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Date Range</label>
           <select
-            className="mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+            className="glass-input mt-1 text-sm"
             value={dateRange}
             onChange={(e) => {
               setDateRange(e.target.value);
@@ -261,14 +588,14 @@ export default function AdminQuizzesPage() {
         <div className="flex gap-2">
           <button
             type="button"
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+            className="btn-secondary px-3 py-2 text-sm font-medium shadow-sm"
             onClick={() => loadTable()}
           >
             Newest
           </button>
           <button
             type="button"
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+            className="btn-secondary px-3 py-2 text-sm font-medium shadow-sm"
             onClick={() => loadTable()}
           >
             Pass %

@@ -8,7 +8,7 @@ import { AdminPageProvider, useAdminPage } from '@/app/admin/AdminPageContext';
 function AdminChrome({ children }: { children: React.ReactNode }) {
   const { search, setSearch, header } = useAdminPage();
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-gray-950 dark:via-gray-900 dark:to-slate-900">
       <AdminSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <AdminHeader
@@ -20,7 +20,7 @@ function AdminChrome({ children }: { children: React.ReactNode }) {
           primaryActionLabel={header.primaryActionLabel}
           onPrimaryAction={header.onPrimaryAction}
         />
-        <div className="flex-1 overflow-auto px-4 py-8 lg:px-8">{children}</div>
+        <div className="flex-1 overflow-auto bg-transparent px-4 py-8 lg:px-8">{children}</div>
       </div>
     </div>
   );

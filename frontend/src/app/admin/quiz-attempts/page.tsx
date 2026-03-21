@@ -46,8 +46,8 @@ export default function AdminQuizAttemptsPage() {
       title: 'Quiz Attempts',
       subtitle: 'Scores and outcomes for each learner attempt.',
       searchPlaceholder: 'Search by learner email or quiz…',
-      primaryActionLabel: '+ New Record',
-      onPrimaryAction: () => {},
+      primaryActionLabel: undefined,
+      onPrimaryAction: undefined,
     });
   }, [setHeader]);
 
@@ -122,7 +122,7 @@ export default function AdminQuizAttemptsPage() {
     {
       key: 'id',
       header: 'ID',
-      render: (r) => <span className="font-mono text-gray-700">#QA-{r.id}</span>,
+      render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">#QA-{r.id}</span>,
     },
     {
       key: 'learner',
@@ -131,15 +131,15 @@ export default function AdminQuizAttemptsPage() {
         const p = r.learner_name.trim().split(/\s+/);
         return (
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-700">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/20 text-xs font-medium text-blue-600 dark:bg-blue-400/20 dark:text-blue-400">
               {initialsFromName(p[0], p[1] || '', r.learner_email)}
             </div>
-            <span className="font-medium text-gray-900">{r.learner_name}</span>
+            <span className="font-medium text-gray-900 dark:text-white">{r.learner_name}</span>
           </div>
         );
       },
     },
-    { key: 'quiz_title', header: 'Quiz Title', render: (r) => <span className="font-medium">{r.quiz_title}</span> },
+    { key: 'quiz_title', header: 'Quiz Title', render: (r) => <span className="font-medium text-gray-900 dark:text-white">{r.quiz_title}</span> },
     {
       key: 'score',
       header: 'Score',
@@ -154,9 +154,9 @@ export default function AdminQuizAttemptsPage() {
       header: 'Percentage',
       render: (r) => (
         <div className="flex items-center gap-2">
-          <div className="h-1.5 w-20 rounded-full bg-gray-200">
+          <div className="h-1.5 w-20 rounded-full bg-gray-200 dark:bg-white/10">
             <div
-              className="h-full rounded-full bg-blue-600"
+              className="h-full rounded-full bg-blue-600 dark:bg-blue-500"
               style={{ width: `${Math.min(100, r.percentage)}%` }}
             />
           </div>
@@ -169,11 +169,11 @@ export default function AdminQuizAttemptsPage() {
       header: 'Status',
       render: (r) =>
         r.is_passed ? (
-          <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+          <span className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400">
             PASSED
           </span>
         ) : (
-          <span className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-bold text-rose-700">
+          <span className="inline-flex rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-0.5 text-xs font-bold text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-400">
             FAILED
           </span>
         ),
@@ -202,9 +202,9 @@ export default function AdminQuizAttemptsPage() {
       </div>
       <div className="flex flex-wrap items-end gap-4">
         <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Quiz</label>
+          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Quiz</label>
           <select
-            className="mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+            className="glass-input mt-1 text-sm"
             value={quizId}
             onChange={(e) => {
               setQuizId(e.target.value);
@@ -220,9 +220,9 @@ export default function AdminQuizAttemptsPage() {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Status</label>
+          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</label>
           <select
-            className="mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+            className="glass-input mt-1 text-sm"
             value={passed}
             onChange={(e) => {
               setPassed(e.target.value);
@@ -241,7 +241,7 @@ export default function AdminQuizAttemptsPage() {
             setPassed('');
             setPage(1);
           }}
-          className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+          className="btn-secondary px-4 py-2 text-sm font-medium shadow-sm"
         >
           Reset Filters
         </button>

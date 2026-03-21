@@ -58,19 +58,22 @@ export default function LessonList({
         const lessons = [...(mod.lessons || [])].sort((a, b) => a.sort_order - b.sort_order);
         const isOpen = openIds.has(mod.id);
         return (
-          <div key={mod.id} className="overflow-hidden rounded-lg border border-gray-100 bg-gray-50/80">
+          <div
+            key={mod.id}
+            className="overflow-hidden rounded-2xl border border-white/20 bg-white/70 shadow-lg shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-white/5 dark:shadow-black/20"
+          >
             <button
               type="button"
               onClick={() => toggle(mod.id)}
-              className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition hover:bg-blue-50/60"
+              className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition hover:bg-white/50 dark:hover:bg-white/5"
             >
               <div>
-                <p className="text-sm font-semibold text-blue-900">{mod.title}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">{mod.title}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   {lessons.length} lesson{lessons.length === 1 ? '' : 's'}
                 </p>
               </div>
-              <span className="text-gray-400">
+              <span className="text-gray-400 dark:text-gray-500">
                 <svg
                   className={`h-5 w-5 transition ${isOpen ? 'rotate-180' : ''}`}
                   fill="none"
@@ -82,7 +85,7 @@ export default function LessonList({
               </span>
             </button>
             {isOpen && (
-              <ul className="space-y-1 border-t border-gray-100 bg-white px-2 py-2">
+              <ul className="space-y-1 border-t border-white/10 bg-white/40 px-2 py-2 dark:border-white/5 dark:bg-white/5">
                 {lessons.map((lesson, idx) => {
                   const done = completedMap.get(lesson.id) ?? lesson.is_completed;
                   const active = lesson.id === currentLessonId;
@@ -93,18 +96,18 @@ export default function LessonList({
                         onClick={() => onSelect(lesson)}
                         className={`flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left text-sm transition ${
                           active
-                            ? 'bg-blue-50 text-blue-900 ring-1 ring-blue-200'
-                            : 'text-gray-700 hover:bg-gray-50'
+                            ? 'bg-blue-500/10 text-blue-600 ring-1 ring-blue-500/20 dark:bg-blue-400/10 dark:text-blue-400'
+                            : 'text-gray-700 hover:bg-white/50 dark:text-gray-300 dark:hover:bg-white/5'
                         }`}
                       >
-                        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-xs font-medium text-gray-500 ring-1 ring-gray-200">
+                        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/80 text-xs font-medium text-gray-500 ring-1 ring-white/30 dark:bg-white/10 dark:text-gray-400 dark:ring-white/10">
                           {idx + 1}
                         </span>
                         <span className="flex-1">
                           <span className="block font-medium">{lesson.title}</span>
                         </span>
                         {done ? (
-                          <span className="text-emerald-500" title="Completed">
+                          <span className="text-emerald-500 dark:text-emerald-400" title="Completed">
                             <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
                               <path
                                 fillRule="evenodd"
@@ -114,7 +117,7 @@ export default function LessonList({
                             </svg>
                           </span>
                         ) : (
-                          <span className="text-gray-300">
+                          <span className="text-gray-300 dark:text-gray-600">
                             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <circle cx="12" cy="12" r="9" strokeWidth="2" />
                             </svg>

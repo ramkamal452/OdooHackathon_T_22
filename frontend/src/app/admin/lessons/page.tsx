@@ -1,10 +1,13 @@
 'use client';
 
 import DataTable, { type Column } from '@/components/DataTable';
+import Modal from '@/components/Modal';
 import Pagination from '@/components/Pagination';
 import { useAdminPage } from '@/app/admin/AdminPageContext';
 import { fetchPage } from '@/lib/admin-fetch';
 import { api } from '@/lib/api';
+import { useToast } from '@/components/Toast';
+import { isAxiosError } from 'axios';
 import { useCallback, useEffect, useState } from 'react';
 
 interface LessonRow {
@@ -19,10 +22,58 @@ interface LessonRow {
   created_at?: string;
 }
 
+interface LessonDetail {
+  id: number;
+  module: number;
+  title: string;
+  content_type: string;
+  content_body?: string;
+  video_url?: string;
+  resource_url?: string;
+  duration_minutes?: number | null;
+  sort_order: number;
+  is_preview?: boolean;
+}
+
+interface AdminModuleOption {
+  id: number;
+  title: string;
+  course_title: string;
+}
+
 const PAGE_SIZE = 10;
 
+function getApiError(err: unknown): string {
+  if (isAxiosError(err) && err.response?.data) {
+    const d = err.response.data as Record<string, unknown> | string;
+    if (typeof d === 'string') return d;
+    if (typeof d === 'object' && d !== null && 'detail' in d) {
+      const det = d.detail;
+      if (typeof det === 'string') return det;
+    }
+    for (const v of Object.values(d)) {
+      if (Array.isArray(v) && v[0]) return String(v[0]);
+      if (typeof v === 'string') return v;
+    }
+  }
+  return 'Something went wrong';
+}
+
+async function fetchAllAdminModules(): Promise<AdminModuleOption[]> {
+  const out: AdminModuleOption[] = [];
+  let page = 1;
+  while (true) {
+    const data = await fetchPage<AdminModuleOption>('/api/admin/modules/', { page });
+    out.push(...data.results);
+    if (!data.next) break;
+    page += 1;
+    if (page > 500) break;
+  }
+  return out;
+}
+
 function ContentIcon({ type }: { type: string }) {
-  const common = 'h-4 w-4 shrink-0 text-blue-600';
+  const common = 'h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400';
   switch (type) {
     case 'video':
       return (
@@ -103,8 +154,24 @@ function PencilIcon() {
   );
 }
 
+function TrashIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+      />
+    </svg>
+  );
+}
+
+type ContentType = 'text' | 'video' | 'pdf' | 'link';
+
 export default function AdminLessonsPage() {
   const { setHeader, search } = useAdminPage();
+  const { toast } = useToast();
   const [page, setPage] = useState(1);
   const [courseId, setCourseId] = useState('');
   const [moduleId, setModuleId] = useState('');
@@ -114,14 +181,33 @@ export default function AdminLessonsPage() {
   const [total, setTotal] = useState(0);
   const [courses, setCourses] = useState<{ id: number; title: string }[]>([]);
   const [modules, setModules] = useState<{ id: number; title: string }[]>([]);
+  const [allModules, setAllModules] = useState<AdminModuleOption[]>([]);
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [loadEdit, setLoadEdit] = useState(false);
+  const [formModuleId, setFormModuleId] = useState('');
+  const [title, setTitle] = useState('');
+  const [formContentType, setFormContentType] = useState<ContentType>('text');
+  const [contentBody, setContentBody] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [resourceUrl, setResourceUrl] = useState('');
+  const [durationMinutes, setDurationMinutes] = useState('');
+  const [sortOrder, setSortOrder] = useState('0');
+  const [isPreview, setIsPreview] = useState(false);
+
+  const [viewRow, setViewRow] = useState<LessonRow | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<LessonRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setHeader({
       title: 'Lesson Inventory',
       subtitle: 'All lessons across modules and courses.',
       searchPlaceholder: 'Search lessons…',
-      primaryActionLabel: '+ Add Lesson',
-      onPrimaryAction: () => {},
+      primaryActionLabel: '+ New Lesson',
+      onPrimaryAction: () => setModalOpen(true),
     });
   }, [setHeader]);
 
@@ -130,6 +216,18 @@ export default function AdminLessonsPage() {
       const data = await fetchPage<{ id: number; title: string }>('/api/admin/courses/', { page: 1 });
       setCourses(data.results.map((c) => ({ id: c.id, title: c.title })));
     })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const list = await fetchAllAdminModules();
+        setAllModules(list);
+      } catch {
+        toast('Failed to load modules list', 'error');
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once on mount
   }, []);
 
   useEffect(() => {
@@ -173,22 +271,123 @@ export default function AdminLessonsPage() {
     loadTable();
   }, [loadTable]);
 
+  useEffect(() => {
+    if (!modalOpen || editingId !== null) return;
+    setFormModuleId('');
+    setTitle('');
+    setFormContentType('text');
+    setContentBody('');
+    setVideoUrl('');
+    setResourceUrl('');
+    setDurationMinutes('');
+    setSortOrder('0');
+    setIsPreview(false);
+  }, [modalOpen, editingId]);
+
+  function buildPayload() {
+    const dm =
+      durationMinutes.trim() === '' ? null : Math.max(0, parseInt(durationMinutes, 10) || 0);
+    const so = Math.max(0, parseInt(sortOrder, 10) || 0);
+    return {
+      title: title.trim(),
+      content_type: formContentType,
+      content_body: formContentType === 'text' ? contentBody : '',
+      video_url: formContentType === 'video' ? videoUrl : '',
+      resource_url: formContentType === 'pdf' || formContentType === 'link' ? resourceUrl : '',
+      duration_minutes: dm,
+      sort_order: so,
+      is_preview: isPreview,
+    };
+  }
+
+  async function openEdit(r: LessonRow) {
+    setLoadEdit(true);
+    try {
+      const { data } = await api.get<LessonDetail>(`/api/lessons/${r.id}/`);
+      setEditingId(r.id);
+      setFormModuleId(String(data.module));
+      setTitle(data.title);
+      setFormContentType(data.content_type as ContentType);
+      setContentBody(data.content_body ?? '');
+      setVideoUrl(data.video_url ?? '');
+      setResourceUrl(data.resource_url ?? '');
+      setDurationMinutes(data.duration_minutes != null ? String(data.duration_minutes) : '');
+      setSortOrder(String(data.sort_order ?? 0));
+      setIsPreview(Boolean(data.is_preview));
+      setModalOpen(true);
+    } catch (err) {
+      toast(getApiError(err), 'error');
+    } finally {
+      setLoadEdit(false);
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingId && !formModuleId) {
+      toast('Please select a module', 'error');
+      return;
+    }
+    if (!title.trim()) {
+      toast('Title is required', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = buildPayload();
+      if (editingId) {
+        await api.patch(`/api/lessons/${editingId}/`, payload);
+        toast('Lesson updated', 'success');
+      } else {
+        await api.post(`/api/modules/${formModuleId}/lessons/`, payload);
+        toast('Lesson created', 'success');
+      }
+      setModalOpen(false);
+      setEditingId(null);
+      loadTable();
+    } catch (err) {
+      toast(getApiError(err), 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/api/lessons/${deleteTarget.id}/`);
+      toast('Lesson deleted', 'success');
+      setDeleteTarget(null);
+      loadTable();
+    } catch (err) {
+      toast(getApiError(err), 'error');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function closeLessonModal() {
+    setModalOpen(false);
+    setEditingId(null);
+  }
+
   const columns: Column<LessonRow>[] = [
     {
       key: 'id',
       header: 'ID',
-      render: (r) => <span className="font-mono text-gray-700">#LS-{r.id}</span>,
+      render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">#LS-{r.id}</span>,
     },
     {
       key: 'title',
       header: 'Lesson Title',
-      render: (r) => <span className="font-medium text-blue-600">{r.title}</span>,
+      render: (r) => <span className="font-medium text-blue-600 dark:text-blue-400">{r.title}</span>,
     },
     {
       key: 'module',
       header: 'Module Title',
       render: (r) => (
-        <span className="inline-flex rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-xs font-medium text-gray-700">
+        <span className="inline-flex rounded-full border border-white/20 bg-white/50 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:border-white/10 dark:bg-white/10 dark:text-gray-300">
           {r.module_title}
         </span>
       ),
@@ -197,7 +396,7 @@ export default function AdminLessonsPage() {
       key: 'content_type',
       header: 'Content Type',
       render: (r) => (
-        <div className="flex items-center gap-2 capitalize text-gray-800">
+        <div className="flex items-center gap-2 capitalize text-gray-800 dark:text-gray-200">
           <ContentIcon type={r.content_type} />
           {r.content_type}
         </div>
@@ -220,11 +419,11 @@ export default function AdminLessonsPage() {
       header: 'Preview',
       render: (r) =>
         r.is_preview ? (
-          <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+          <span className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400">
             YES
           </span>
         ) : (
-          <span className="inline-flex rounded-full border border-gray-200 bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+          <span className="inline-flex rounded-full border border-gray-500/20 bg-gray-500/10 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:border-gray-400/10 dark:bg-gray-400/10 dark:text-gray-400">
             NO
           </span>
         ),
@@ -232,13 +431,31 @@ export default function AdminLessonsPage() {
     {
       key: 'actions',
       header: 'Actions',
-      render: () => (
-        <div className="flex items-center gap-2 text-gray-500">
-          <button type="button" className="rounded p-1 hover:bg-gray-100 hover:text-blue-600" aria-label="View">
+      render: (r) => (
+        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+          <button
+            type="button"
+            onClick={() => setViewRow(r)}
+            className="rounded p-1 hover:bg-white/10 hover:text-blue-600 dark:hover:bg-white/10 dark:hover:text-blue-400"
+            aria-label="View"
+          >
             <EyeIcon />
           </button>
-          <button type="button" className="rounded p-1 hover:bg-gray-100 hover:text-blue-600" aria-label="Edit">
+          <button
+            type="button"
+            onClick={() => openEdit(r)}
+            className="rounded p-1 hover:bg-white/10 hover:text-blue-600 dark:hover:bg-white/10 dark:hover:text-blue-400"
+            aria-label="Edit"
+          >
             <PencilIcon />
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeleteTarget(r)}
+            className="rounded p-1 hover:bg-white/10 hover:text-rose-600 dark:hover:bg-white/10 dark:hover:text-rose-400"
+            aria-label="Delete"
+          >
+            <TrashIcon />
           </button>
         </div>
       ),
@@ -246,14 +463,16 @@ export default function AdminLessonsPage() {
   ];
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const isEdit = editingId !== null;
+  const moduleSelectDisabled = isEdit;
 
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end gap-4">
         <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Course</label>
+          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Course</label>
           <select
-            className="mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+            className="glass-input mt-1 text-sm"
             value={courseId}
             onChange={(e) => {
               setCourseId(e.target.value);
@@ -269,9 +488,9 @@ export default function AdminLessonsPage() {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Module</label>
+          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Module</label>
           <select
-            className="mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+            className="glass-input mt-1 text-sm"
             value={moduleId}
             onChange={(e) => {
               setModuleId(e.target.value);
@@ -288,9 +507,9 @@ export default function AdminLessonsPage() {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">Content</label>
+          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Content</label>
           <select
-            className="mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+            className="glass-input mt-1 text-sm"
             value={contentType}
             onChange={(e) => {
               setContentType(e.target.value);
@@ -312,14 +531,14 @@ export default function AdminLessonsPage() {
             setContentType('');
             setPage(1);
           }}
-          className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+          className="btn-secondary px-4 py-2 text-sm font-medium shadow-sm"
         >
           Reset
         </button>
         <button
           type="button"
           onClick={() => loadTable()}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+          className="btn-primary px-4 py-2 text-sm font-semibold"
         >
           Apply
         </button>
@@ -333,6 +552,187 @@ export default function AdminLessonsPage() {
         onPageChange={setPage}
         itemName="lessons"
       />
+
+      <Modal
+        open={modalOpen}
+        onClose={closeLessonModal}
+        title={isEdit ? 'Edit Lesson' : 'New Lesson'}
+        subtitle={isEdit ? 'Update lesson content and settings.' : 'Add a lesson to a module.'}
+        size="lg"
+      >
+        {loadEdit ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">Loading lesson…</p>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Module</label>
+              <select
+                className="glass-input mt-1 w-full text-sm"
+                value={formModuleId}
+                onChange={(e) => setFormModuleId(e.target.value)}
+                required={!isEdit}
+                disabled={moduleSelectDisabled}
+              >
+                {!isEdit && <option value="">Select module…</option>}
+                {allModules.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.course_title} — {m.title}
+                  </option>
+                ))}
+              </select>
+              {isEdit && (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Module cannot be changed after creation.</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
+              <input
+                className="glass-input mt-1 w-full"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                placeholder="Lesson title"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Content type</label>
+              <select
+                className="glass-input mt-1 w-full text-sm"
+                value={formContentType}
+                onChange={(e) => setFormContentType(e.target.value as ContentType)}
+              >
+                <option value="text">Text</option>
+                <option value="video">Video</option>
+                <option value="pdf">PDF</option>
+                <option value="link">Link</option>
+              </select>
+            </div>
+            {formContentType === 'text' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Content</label>
+                <textarea
+                  className="glass-input mt-1 min-h-[120px] w-full resize-y text-sm"
+                  value={contentBody}
+                  onChange={(e) => setContentBody(e.target.value)}
+                  placeholder="Lesson text content"
+                />
+              </div>
+            )}
+            {formContentType === 'video' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Video URL</label>
+                <input
+                  className="glass-input mt-1 w-full"
+                  type="url"
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  placeholder="https://…"
+                />
+              </div>
+            )}
+            {(formContentType === 'pdf' || formContentType === 'link') && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Resource URL</label>
+                <input
+                  className="glass-input mt-1 w-full"
+                  type="url"
+                  value={resourceUrl}
+                  onChange={(e) => setResourceUrl(e.target.value)}
+                  placeholder="https://…"
+                />
+              </div>
+            )}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Duration (minutes)</label>
+                <input
+                  className="glass-input mt-1 w-full"
+                  type="number"
+                  min={0}
+                  value={durationMinutes}
+                  onChange={(e) => setDurationMinutes(e.target.value)}
+                  placeholder="Optional"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sort order</label>
+                <input
+                  className="glass-input mt-1 w-full"
+                  type="number"
+                  min={0}
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value)}
+                />
+              </div>
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                checked={isPreview}
+                onChange={(e) => setIsPreview(e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              Preview lesson (visible before enrollment)
+            </label>
+            <div className="flex justify-end gap-3 border-t border-gray-100 pt-4 dark:border-white/10">
+              <button type="button" onClick={closeLessonModal} className="btn-secondary">
+                Cancel
+              </button>
+              <button type="submit" disabled={saving} className="btn-primary">
+                {saving ? 'Saving…' : isEdit ? 'Update' : 'Create'}
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      <Modal
+        open={!!viewRow}
+        onClose={() => setViewRow(null)}
+        title="Lesson summary"
+        subtitle={viewRow ? viewRow.course_title : undefined}
+        size="sm"
+      >
+        {viewRow ? (
+          <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+            <p>
+              <span className="font-medium text-gray-500 dark:text-gray-400">Title:</span> {viewRow.title}
+            </p>
+            <p>
+              <span className="font-medium text-gray-500 dark:text-gray-400">Module:</span> {viewRow.module_title}
+            </p>
+            <p className="capitalize">
+              <span className="font-medium text-gray-500 dark:text-gray-400">Type:</span> {viewRow.content_type}
+            </p>
+          </div>
+        ) : null}
+      </Modal>
+
+      <Modal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete lesson"
+        subtitle="This action cannot be undone."
+        size="sm"
+      >
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Are you sure you want to delete{' '}
+          <strong className="text-gray-900 dark:text-white">{deleteTarget?.title}</strong>?
+        </p>
+        <div className="mt-6 flex justify-end gap-3">
+          <button type="button" onClick={() => setDeleteTarget(null)} className="btn-secondary">
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={deleting}
+            onClick={handleDelete}
+            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-rose-500/25 transition-all hover:from-rose-600 hover:to-rose-700 disabled:opacity-60"
+          >
+            {deleting ? 'Deleting…' : 'Delete'}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

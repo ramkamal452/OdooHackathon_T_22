@@ -137,17 +137,20 @@ export default function CourseDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center bg-gray-50">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+      <div className="surface-bg flex min-h-[50vh] items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-500 border-t-transparent dark:border-blue-400" />
       </div>
     );
   }
 
   if (error || !course) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-16 text-center">
-        <p className="text-rose-600">{error || 'Not found'}</p>
-        <Link href="/courses" className="mt-4 inline-block text-[#2563eb] hover:underline">
+      <div className="surface-bg mx-auto max-w-7xl px-4 py-16 text-center">
+        <p className="text-rose-500 dark:text-rose-400">{error || 'Not found'}</p>
+        <Link
+          href="/courses"
+          className="mt-4 inline-block text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+        >
           Back to courses
         </Link>
       </div>
@@ -170,10 +173,10 @@ export default function CourseDetailPage() {
   const modules = course.modules || [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen surface-bg">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="overflow-hidden rounded-xl border border-dashed border-blue-100 bg-white shadow-sm">
-          <div className="relative aspect-[21/9] min-h-[200px] bg-gray-100 md:aspect-[3/1]">
+        <div className="glass-card overflow-hidden shadow-lg shadow-black/5 dark:shadow-black/20">
+          <div className="relative aspect-[21/9] min-h-[200px] bg-gray-100 dark:bg-gray-800 md:aspect-[3/1]">
             {thumb ? (
               <>
                 <Image src={thumb} alt="" fill className="object-cover" priority sizes="100vw" />
@@ -183,66 +186,52 @@ export default function CourseDetailPage() {
                 />
               </>
             ) : (
-              <div className="flex h-full items-center justify-center bg-gradient-to-br from-blue-100 via-white to-blue-50 text-blue-300">
+              <div className="flex h-full items-center justify-center bg-gradient-to-br from-blue-100 via-white to-blue-50 text-blue-300 dark:from-gray-800 dark:via-gray-900 dark:to-slate-900 dark:text-blue-400/50">
                 <span className="text-lg font-medium">No thumbnail</span>
               </div>
             )}
           </div>
           <div className="p-6 sm:p-10">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-medium text-[#2563eb]">{instructorName}</p>
+              <p className="text-sm font-medium text-blue-600 dark:text-blue-400">{instructorName}</p>
               {course.category?.name || course.category_name ? (
-                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-900">
+                <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-700 dark:border-blue-400/20 dark:bg-blue-400/10 dark:text-blue-300">
                   {course.category?.name || course.category_name}
                 </span>
               ) : null}
               {course.level ? (
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium capitalize text-gray-700">
+                <span className="rounded-full border border-white/20 bg-white/50 px-2 py-0.5 text-xs font-medium capitalize text-gray-700 dark:border-white/10 dark:bg-white/10 dark:text-gray-300">
                   {course.level}
                 </span>
               ) : null}
             </div>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#1e40af]">{course.title}</h1>
-            <p className="mt-4 max-w-3xl whitespace-pre-wrap text-gray-600">
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{course.title}</h1>
+            <p className="mt-4 max-w-3xl whitespace-pre-wrap text-gray-600 dark:text-gray-400">
               {course.description || course.short_description}
             </p>
 
             {enrolled && (
               <div className="mt-8 max-w-xl">
-                <p className="text-sm font-medium text-gray-700">Your progress</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Your progress</p>
                 <ProgressBar value={progressPct} className="mt-2" />
               </div>
             )}
 
             <div className="mt-8 flex flex-wrap gap-4">
               {isOwner ? (
-                <Link
-                  href={`/dashboard/instructor/courses/${id}/edit`}
-                  className="rounded-lg bg-[#2563eb] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
-                >
+                <Link href={`/dashboard/instructor/courses/${id}/edit`} className="btn-primary">
                   Edit course
                 </Link>
               ) : !enrolled ? (
-                <button
-                  type="button"
-                  onClick={enroll}
-                  disabled={actionLoading}
-                  className="rounded-lg bg-[#2563eb] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
-                >
+                <button type="button" onClick={enroll} disabled={actionLoading} className="btn-primary disabled:opacity-60">
                   {actionLoading ? 'Enrolling…' : 'Enroll'}
                 </button>
               ) : (
-                <Link
-                  href={`/courses/${id}/learn`}
-                  className="rounded-lg bg-[#2563eb] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
-                >
+                <Link href={`/courses/${id}/learn`} className="btn-primary">
                   Continue learning
                 </Link>
               )}
-              <Link
-                href="/courses"
-                className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50"
-              >
+              <Link href="/courses" className="btn-secondary">
                 All courses
               </Link>
             </div>
@@ -253,12 +242,9 @@ export default function CourseDetailPage() {
                 { label: 'Completed', value: stats.done },
                 { label: 'Remaining', value: stats.remaining },
               ].map((s) => (
-                <div
-                  key={s.label}
-                  className="rounded-xl border border-dashed border-blue-100 bg-white px-4 py-4 text-center shadow-sm"
-                >
-                  <p className="text-3xl font-bold tabular-nums text-gray-900">{s.value}</p>
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <div key={s.label} className="glass-card rounded-xl px-4 py-4 text-center">
+                  <p className="text-3xl font-bold tabular-nums text-gray-900 dark:text-white">{s.value}</p>
+                  <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500">
                     {s.label}
                   </p>
                 </div>
@@ -269,8 +255,8 @@ export default function CourseDetailPage() {
 
         <div className="mt-10 grid gap-10 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <h2 className="text-xl font-semibold text-[#1e40af]">Curriculum</h2>
-            <div className="mt-4 rounded-xl border border-dashed border-blue-100 bg-white p-4 shadow-sm">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Curriculum</h2>
+            <div className="glass-card mt-4 p-4">
               {modules.length > 0 ? (
                 <LessonList
                   modules={modules}
@@ -278,34 +264,28 @@ export default function CourseDetailPage() {
                   completedMap={completedMap}
                 />
               ) : (
-                <p className="text-sm text-gray-500">No modules yet.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-500">No modules yet.</p>
               )}
             </div>
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-[#1e40af]">Quizzes</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Quizzes</h2>
             <ul className="mt-4 space-y-3">
               {quizzes.map((q) => (
-                <li
-                  key={q.id}
-                  className="flex items-center justify-between rounded-xl border border-dashed border-blue-100 bg-white p-4 shadow-sm"
-                >
+                <li key={q.id} className="glass-card flex items-center justify-between p-4">
                   <div>
-                    <p className="font-medium text-gray-900">{q.title}</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{q.title}</p>
                     {q.question_count != null ? (
-                      <p className="text-xs text-gray-500">{q.question_count} questions</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500">{q.question_count} questions</p>
                     ) : null}
                   </div>
-                  <Link
-                    href={`/courses/${id}/quiz/${q.id}`}
-                    className="rounded-lg bg-[#2563eb] px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
-                  >
+                  <Link href={`/courses/${id}/quiz/${q.id}`} className="btn-primary px-3 py-1.5 text-sm">
                     Take quiz
                   </Link>
                 </li>
               ))}
               {quizzes.length === 0 && (
-                <li className="text-sm text-gray-500">No quizzes for this course yet.</li>
+                <li className="text-sm text-gray-500 dark:text-gray-500">No quizzes for this course yet.</li>
               )}
             </ul>
           </div>

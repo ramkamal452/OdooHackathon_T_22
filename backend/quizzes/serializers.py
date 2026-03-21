@@ -116,7 +116,7 @@ class QuizWriteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Quiz
-        fields = ['title', 'description', 'module', 'pass_percentage', 'questions']
+        fields = ['title', 'description', 'module', 'pass_percentage', 'is_published', 'questions']
 
     def validate(self, attrs):
         module = attrs.get('module')
