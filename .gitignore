@@ -36,10 +36,8 @@ staticfiles/
 # Uploads
 uploads/
 media/
+.cursor/
 
-
-#Docker
-entrypoint.sh
 
 #Documentation
 docs/

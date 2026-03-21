@@ -1,14 +1,15 @@
 #!/bin/sh
 set -e
 
-echo "Creating migrations..."
-python manage.py makemigrations accounts courses quizzes
-
-echo "Applying database migrations..."
+echo "Running migrations..."
+python manage.py makemigrations accounts assets taxonomy content enrollment quizzes gamification reviews
 python manage.py migrate
 
-echo "Checking for admin user..."
+echo "Seeding badges..."
+python manage.py seed_badges
+
+echo "Ensuring admin user..."
 python manage.py ensure_admin
 
-echo "Starting Django server on port 8000..."
-exec python manage.py runserver 0.0.0.0:8000
+echo "Starting server..."
+python manage.py runserver 0.0.0.0:8000
