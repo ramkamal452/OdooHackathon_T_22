@@ -1,0 +1,410 @@
+erDiagram
+    %% ═══════════════════════════════════════════════════════
+    %%  LEARNOVA – Full Database ER Diagram
+    %%  Generated from Django models (accounts, assets, content,
+    %%  taxonomy, enrollment, quizzes, gamification, reviews)
+    %% ═══════════════════════════════════════════════════════
+
+    %% ─────────────── ACCOUNTS ───────────────
+    User {
+        int id PK
+        string email UK "unique"
+        string first_name
+        string last_name
+        string password
+        string role "admin | instructor | learner"
+        text bio
+        string avatar "ImageField"
+        int points
+        datetime last_login_at
+        bool is_staff
+        bool is_superuser
+        bool is_active
+        datetime date_joined
+    }
+
+    %% ─────────────── ASSETS ───────────────
+    Asset {
+        int id PK
+        int storage_provider "S3 | CloudFront | Local"
+        string bucket_name
+        string object_key UK "unique"
+        string file_name
+        string mime_type
+        bigint file_size_bytes
+        string checksum_sha256
+        int width
+        int height
+        int duration_seconds
+        string etag
+        bool is_public
+        int uploaded_by_id FK
+        datetime created_at
+    }
+
+    %% ─────────────── CONTENT (core) ───────────────
+    ContentEntity {
+        int id PK
+        int entity_type "Course|Module|Lesson|Video|Quiz|Article|Resource"
+        string title
+        string slug UK "unique"
+        string short_description
+        text description
+        int owner_id FK
+        int status_code "Draft|Published|Archived|Hidden"
+        int thumbnail_asset_id FK "nullable"
+        int estimated_duration_seconds
+        bool allow_standalone_enrollment
+        bool is_reusable
+        datetime published_at
+        datetime archived_at
+        datetime created_at
+        datetime updated_at
+        datetime deleted_at "soft delete"
+    }
+
+    ContentStructure {
+        int id PK
+        int parent_entity_id FK
+        int child_entity_id FK
+        int sort_order
+        bool is_required
+        bool is_preview
+        int unlock_rule_code "Immediate|AfterPrevious|AfterPrereq|Scheduled|Manual"
+        json unlock_rule_config
+        datetime created_at
+    }
+
+    CourseSettings {
+        int entity_id PK "OneToOne FK"
+        int visibility_code "Everyone | Signed In"
+        int access_rule_code "Open | Invitation | Payment"
+        decimal price
+        string website
+        int responsible_id FK "nullable"
+        int level_code "Beginner | Intermediate | Advanced"
+    }
+
+    VideoContent {
+        int entity_id PK "OneToOne FK"
+        int video_asset_id FK "nullable"
+        int poster_asset_id FK "nullable"
+        int captions_asset_id FK "nullable"
+        string video_url
+        int streaming_provider "DirectS3|CloudFront|HLS"
+        int duration_seconds
+        text transcript_text
+        bool allow_download
+        bool autoplay_enabled
+    }
+
+    ArticleContent {
+        int entity_id PK "OneToOne FK"
+        text body_markdown
+        int reading_time_seconds
+    }
+
+    ResourceContent {
+        int entity_id PK "OneToOne FK"
+        int asset_id FK "nullable"
+        string resource_url
+        int resource_kind "PDF|Image|Worksheet|Attachment|ExternalLink"
+        bool allow_download
+    }
+
+    LessonContent {
+        int entity_id PK "OneToOne FK"
+        int lesson_format "Text | Mixed | Guided | Wrapper"
+        text body
+    }
+
+    QuizContent {
+        int entity_id PK "OneToOne FK"
+        text instructions
+        int attempt_limit
+        int pass_percentage
+        bool shuffle_questions
+        bool shuffle_options
+        bool show_answers_after_submit
+        bool show_score_immediately
+        int time_limit_seconds
+        bool allow_resume
+        bool award_points
+    }
+
+    EntityStats {
+        int entity_id PK "OneToOne FK"
+        int direct_child_count
+        int required_child_count
+        int total_duration_seconds
+        int enrollment_count
+        int completion_count
+        decimal average_rating
+        int total_reviews
+        int total_points_awarded
+        int views_count
+        datetime updated_at
+    }
+
+    CompletionRule {
+        int id PK
+        int entity_id FK
+        int rule_type "AllRequired|AnyN|PassQuiz|WatchPct|Manual"
+        json rule_config
+        datetime created_at
+    }
+
+    EntityPrerequisite {
+        int id PK
+        int entity_id FK
+        int required_entity_id FK
+        datetime created_at
+    }
+
+    ContentAttachment {
+        int id PK
+        int entity_id FK
+        string title
+        int asset_id FK "nullable"
+        string external_url
+        int sort_order
+        datetime created_at
+    }
+
+    %% ─────────────── TAXONOMY ───────────────
+    Category {
+        int id PK
+        string name
+        string slug UK "unique"
+        int parent_id FK "self-ref, nullable"
+        datetime created_at
+    }
+
+    Tag {
+        int id PK
+        string name
+        string slug UK "unique"
+        datetime created_at
+    }
+
+    EntityCategory {
+        int id PK
+        int entity_id FK
+        int category_id FK
+        datetime created_at
+    }
+
+    EntityTag {
+        int id PK
+        int entity_id FK
+        int tag_id FK
+        datetime created_at
+    }
+
+    %% ─────────────── ENROLLMENT ───────────────
+    CourseMembership {
+        int id PK
+        int course_entity_id FK
+        int user_id FK "nullable"
+        string invited_email
+        int invited_by_id FK "nullable"
+        string invite_token UK "nullable, unique"
+        int membership_status "Invited|Active|Completed|Revoked|Expired"
+        int access_mode "Open|Invitation|AdminAssigned|Imported"
+        datetime invited_at
+        datetime enrolled_at
+        datetime started_at
+        datetime completed_at
+        datetime revoked_at
+        datetime last_accessed_at
+        int progress_percent
+        int time_spent_seconds
+    }
+
+    EntityProgress {
+        int id PK
+        int learner_id FK
+        int entity_id FK
+        int progress_status "NotStarted|InProgress|Completed|Failed|Locked"
+        int progress_percent
+        int last_position_seconds
+        datetime started_at
+        datetime completed_at
+        datetime last_accessed_at
+        datetime updated_at
+    }
+
+    %% ─────────────── QUIZZES ───────────────
+    QuizQuestion {
+        int id PK
+        int quiz_entity_id FK
+        int question_type "MCQ_Single|MCQ_Multiple|ShortText|TrueFalse"
+        text question_text
+        text explanation_text
+        int marks
+        int sort_order
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+
+    QuizOption {
+        int id PK
+        int question_id FK
+        string option_text
+        bool is_correct
+        int sort_order
+    }
+
+    QuizAttempt {
+        int id PK
+        int quiz_entity_id FK
+        int learner_id FK
+        int attempt_no
+        int score
+        int max_score
+        decimal percentage
+        bool is_passed
+        int time_spent_seconds
+        int points_earned
+        datetime started_at
+        datetime submitted_at
+        datetime created_at
+    }
+
+    QuizAttemptAnswer {
+        int id PK
+        int attempt_id FK
+        int question_id FK
+        int selected_option_id FK "nullable"
+        text text_answer
+        bool is_correct
+        int marks_awarded
+        datetime answered_at
+    }
+
+    QuizRewardRule {
+        int id PK
+        int quiz_entity_id FK
+        int attempt_from
+        int attempt_to "nullable"
+        int points_awarded
+        datetime created_at
+    }
+
+    %% ─────────────── GAMIFICATION ───────────────
+    Badge {
+        int id PK
+        string name
+        string slug UK "unique"
+        text description
+        int min_points
+        int icon_asset_id FK "nullable"
+        int sort_order
+        bool is_active
+        datetime created_at
+    }
+
+    UserBadge {
+        int id PK
+        int user_id FK
+        int badge_id FK
+        datetime awarded_at
+    }
+
+    UserPointLedger {
+        int id PK
+        int user_id FK
+        int source_type "Quiz|CourseCompletion|LessonCompletion|AdminBonus|BadgeBonus"
+        int source_entity_id FK "nullable"
+        int source_attempt_id FK "nullable"
+        int points "signed integer"
+        string reason
+        datetime created_at
+    }
+
+    %% ─────────────── REVIEWS ───────────────
+    CourseReview {
+        int id PK
+        int course_entity_id FK
+        int user_id FK
+        int rating
+        text review_text
+        bool is_published
+        datetime created_at
+        datetime updated_at
+    }
+
+    %% ═══════════════════════════════════════════════════════
+    %%  RELATIONSHIPS
+    %% ═══════════════════════════════════════════════════════
+
+    %% --- User ownership & uploads ---
+    User ||--o{ ContentEntity : "owns"
+    User ||--o{ Asset : "uploads"
+
+    %% --- Asset references ---
+    Asset |o--o{ ContentEntity : "thumbnail"
+    Asset |o--o| VideoContent : "video file"
+    Asset |o--o| VideoContent : "poster"
+    Asset |o--o| VideoContent : "captions"
+    Asset |o--o| ResourceContent : "file"
+    Asset |o--o{ ContentAttachment : "attachment file"
+    Asset |o--o| Badge : "icon"
+
+    %% --- ContentEntity OneToOne detail tables ---
+    ContentEntity ||--o| CourseSettings : "course config"
+    ContentEntity ||--o| VideoContent : "video detail"
+    ContentEntity ||--o| ArticleContent : "article detail"
+    ContentEntity ||--o| ResourceContent : "resource detail"
+    ContentEntity ||--o| LessonContent : "lesson detail"
+    ContentEntity ||--o| QuizContent : "quiz config"
+    ContentEntity ||--o| EntityStats : "stats"
+
+    %% --- ContentEntity hierarchy ---
+    ContentEntity ||--o{ ContentStructure : "is parent of"
+    ContentEntity ||--o{ ContentStructure : "is child of"
+
+    %% --- ContentEntity misc ---
+    ContentEntity ||--o{ CompletionRule : "completion rules"
+    ContentEntity ||--o{ EntityPrerequisite : "has prerequisites"
+    ContentEntity ||--o{ EntityPrerequisite : "is required by"
+    ContentEntity ||--o{ ContentAttachment : "attachments"
+
+    %% --- CourseSettings responsible ---
+    User |o--o{ CourseSettings : "responsible for"
+
+    %% --- Taxonomy ---
+    Category |o--o{ Category : "parent-child"
+    ContentEntity ||--o{ EntityCategory : "categorised as"
+    Category ||--o{ EntityCategory : "applied to"
+    ContentEntity ||--o{ EntityTag : "tagged as"
+    Tag ||--o{ EntityTag : "applied to"
+
+    %% --- Enrollment ---
+    ContentEntity ||--o{ CourseMembership : "enrollments"
+    User |o--o{ CourseMembership : "enrolled in"
+    User |o--o{ CourseMembership : "invited by"
+    ContentEntity ||--o{ EntityProgress : "progress tracked"
+    User ||--o{ EntityProgress : "tracks progress"
+
+    %% --- Quizzes ---
+    ContentEntity ||--o{ QuizQuestion : "quiz questions"
+    ContentEntity ||--o{ QuizAttempt : "quiz attempts"
+    ContentEntity ||--o{ QuizRewardRule : "reward rules"
+    User ||--o{ QuizAttempt : "attempts quiz"
+    QuizQuestion ||--o{ QuizOption : "has options"
+    QuizAttempt ||--o{ QuizAttemptAnswer : "has answers"
+    QuizQuestion ||--o{ QuizAttemptAnswer : "answered in"
+    QuizOption |o--o{ QuizAttemptAnswer : "selected in"
+
+    %% --- Gamification ---
+    User ||--o{ UserBadge : "earns"
+    Badge ||--o{ UserBadge : "awarded to"
+    User ||--o{ UserPointLedger : "point history"
+    ContentEntity |o--o{ UserPointLedger : "source entity"
+    QuizAttempt |o--o{ UserPointLedger : "source attempt"
+
+    %% --- Reviews ---
+    ContentEntity ||--o{ CourseReview : "reviewed"
+    User ||--o{ CourseReview : "writes review"

@@ -135,6 +135,25 @@ export function unwrapList<T>(data: unknown): T[] {
   return [];
 }
 
+export interface Badge {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  min_points: number;
+  icon_url?: string | null;
+  sort_order: number;
+}
+
+export interface PointLedgerEntry {
+  id: number;
+  source_type: number;
+  source_type_label: string;
+  points: number;
+  reason: string;
+  created_at: string;
+}
+
 export interface User {
   id: number;
   email: string;
@@ -143,6 +162,8 @@ export interface User {
   role: UserRole;
   bio?: string;
   avatar?: string | null;
+  points?: number;
+  badge?: string;
   is_staff?: boolean;
   date_joined?: string;
 }
@@ -171,7 +192,7 @@ export interface ModuleItem {
 export interface LessonItem {
   id: number;
   title: string;
-  content_type: 'video' | 'text' | 'pdf' | 'link';
+  content_type: 'video' | 'text' | 'pdf' | 'link' | 'document' | 'image';
   content_body?: string;
   video_url?: string;
   resource_url?: string;
@@ -200,12 +221,26 @@ export interface CourseListItem {
   created_at?: string;
 }
 
+export interface CourseReview {
+  id: number;
+  course: number;
+  user: number;
+  user_name: string;
+  user_avatar?: string | null;
+  rating: number;
+  review_text: string;
+  created_at: string;
+}
+
 export interface CourseDetail extends CourseListItem {
   modules: ModuleItem[];
+  tags?: string;
+  website?: string;
   visibility?: string;
   access_rule?: string;
   price?: string | null;
   enrollment_status?: string | null;
+  reviews?: CourseReview[];
   created_at?: string;
   updated_at?: string;
 }
@@ -243,6 +278,10 @@ export interface QuizDetail {
   description?: string;
   pass_percentage?: number;
   is_published?: boolean;
+  reward_first_try?: number;
+  reward_second_try?: number;
+  reward_third_try?: number;
+  reward_fourth_plus?: number;
   questions: QuizQuestion[];
 }
 
@@ -251,6 +290,8 @@ export interface QuizAttemptResult {
   total_marks: number;
   percentage: number;
   is_passed: boolean;
+  attempt_number?: number;
+  points_earned?: number;
   submitted_at?: string;
   answers?: Array<{
     question_id: number;

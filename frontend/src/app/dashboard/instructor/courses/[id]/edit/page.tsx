@@ -63,6 +63,8 @@ export default function EditCoursePage() {
   const [quizDescription, setQuizDescription] = useState('');
   const [quizPassPercentage, setQuizPassPercentage] = useState('70');
   const [quizModuleId, setQuizModuleId] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteMsg, setInviteMsg] = useState('');
   const [quizQuestions, setQuizQuestions] = useState<QuestionDraft[]>([
     {
       question_text: '',
@@ -362,6 +364,20 @@ export default function EditCoursePage() {
       setSaving(false);
     }
   }
+  async function sendInvite() {
+    if (!inviteEmail.trim()) return;
+    setSaving(true);
+    setInviteMsg('');
+    try {
+      await api.post(`/api/courses/${courseId}/invite/`, { email: inviteEmail.trim() });
+      setInviteMsg('Invitation sent!');
+      setInviteEmail('');
+    } catch {
+      setInviteMsg('Could not send invitation.');
+    } finally {
+      setSaving(false);
+    }
+  }
   async function deleteQuiz(quizId: number) {
     if (!confirm('Delete this quiz?')) return;
     setSaving(true);
@@ -574,6 +590,27 @@ export default function EditCoursePage() {
                 {saving ? 'Saving…' : 'Save details'}
               </button>
             </form>
+
+            <div className="glass-card mt-6 rounded-2xl p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Invite attendee</h2>
+              <div className="mt-4 flex gap-2">
+                <input
+                  type="email"
+                  placeholder="Email address"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="glass-input flex-1"
+                />
+                <button type="button" onClick={sendInvite} disabled={saving} className="btn-primary">
+                  Send invite
+                </button>
+              </div>
+              {inviteMsg && (
+                <p className={`mt-2 text-sm ${inviteMsg.includes('sent') ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
+                  {inviteMsg}
+                </p>
+              )}
+            </div>
           )}
           {tab === 'modules' && (
             <div className="mt-6 grid gap-8 lg:grid-cols-2">

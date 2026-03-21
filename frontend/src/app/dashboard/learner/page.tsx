@@ -3,7 +3,7 @@
 import CourseCard from '@/components/CourseCard';
 import DashboardStats from '@/components/DashboardStats';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { CourseListItem, api } from '@/lib/api';
+import { Badge, CourseListItem, PointLedgerEntry, api, unwrapList } from '@/lib/api';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -22,6 +22,8 @@ interface LearnerDashboard {
 
 export default function LearnerDashboardPage() {
   const [data, setData] = useState<LearnerDashboard | null>(null);
+  const [badges, setBadges] = useState<{ badge: Badge; awarded_at: string }[]>([]);
+  const [points, setPoints] = useState<PointLedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -37,9 +39,20 @@ export default function LearnerDashboardPage() {
         total_points: 0,
         enrollments: [],
       });
-    } finally {
-      setLoading(false);
     }
+    try {
+      const { data: b } = await api.get<unknown>('/api/my/badges/');
+      setBadges(unwrapList(b));
+    } catch {
+      setBadges([]);
+    }
+    try {
+      const { data: p } = await api.get<unknown>('/api/my/points/');
+      setPoints(unwrapList<PointLedgerEntry>(p));
+    } catch {
+      setPoints([]);
+    }
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -74,6 +87,54 @@ export default function LearnerDashboardPage() {
                   ]}
                 />
               </div>
+
+              {badges.length > 0 && (
+                <>
+                  <h2 className="mt-12 text-xl font-semibold text-gray-900 dark:text-white">
+                    Your badges
+                  </h2>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {badges.map((b) => (
+                      <div
+                        key={b.badge.id}
+                        className="glass-card flex items-center gap-3 rounded-xl px-4 py-3"
+                      >
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10 text-lg font-bold text-blue-600 dark:bg-blue-400/10 dark:text-blue-400">
+                          {b.badge.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900 dark:text-white">{b.badge.name}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{b.badge.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {points.length > 0 && (
+                <>
+                  <h2 className="mt-12 text-xl font-semibold text-gray-900 dark:text-white">
+                    Recent point activity
+                  </h2>
+                  <div className="glass-card mt-4 divide-y divide-white/10 rounded-xl dark:divide-white/5">
+                    {points.slice(0, 10).map((p) => (
+                      <div key={p.id} className="flex items-center justify-between px-4 py-3">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{p.reason || p.source_type_label}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {new Date(p.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <span className={`text-sm font-bold ${p.points >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                          {p.points >= 0 ? '+' : ''}{p.points}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
               <h2 className="mt-12 text-xl font-semibold text-gray-900 dark:text-white">
                 Your courses
               </h2>

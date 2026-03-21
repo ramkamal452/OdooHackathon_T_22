@@ -4,6 +4,7 @@ import LessonList from '@/components/LessonList';
 import ProgressBar from '@/components/ProgressBar';
 import {
   CourseDetail,
+  CourseReview,
   LessonItem,
   QuizListItem,
   api,
@@ -290,6 +291,39 @@ export default function CourseDetailPage() {
             </ul>
           </div>
         </div>
+
+        {(course.reviews ?? []).length > 0 && (
+          <div className="mt-10">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Reviews</h2>
+            <div className="mt-4 space-y-4">
+              {(course.reviews as CourseReview[]).map((r) => (
+                <div key={r.id} className="glass-card rounded-xl p-5">
+                  <div className="flex items-center gap-3">
+                    {r.user_avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={mediaUrl(r.user_avatar)} alt="" className="h-9 w-9 rounded-full object-cover" />
+                    ) : (
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500/10 text-sm font-bold text-blue-600 dark:bg-blue-400/10 dark:text-blue-400">
+                        {r.user_name?.charAt(0)?.toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{r.user_name}</p>
+                      <div className="flex gap-0.5">
+                        {Array.from({ length: 5 }, (_, i) => (
+                          <span key={i} className={i < r.rating ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}>
+                            &#9733;
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm text-gray-700 dark:text-gray-300">{r.review_text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
