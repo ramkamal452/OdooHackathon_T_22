@@ -223,7 +223,7 @@ export interface AttachmentItem {
 export interface LessonItem {
   id: number;
   title: string;
-  content_type: 'video' | 'audio' | 'text' | 'pdf' | 'link' | 'document' | 'image';
+  content_type: 'video' | 'audio' | 'text' | 'pdf' | 'link' | 'document' | 'image' | 'quiz';
   content_body?: string;
   video_url?: string;
   resource_url?: string;
@@ -232,7 +232,9 @@ export interface LessonItem {
   sort_order: number;
   is_preview?: boolean;
   is_completed?: boolean;
+  is_locked?: boolean;
   attachments?: AttachmentItem[];
+  questions?: QuizQuestion[];
 }
 
 export interface CourseListItem {

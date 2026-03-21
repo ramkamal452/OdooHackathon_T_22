@@ -93,7 +93,9 @@ def _content_type_label(entity):
         return 'text'
     if entity.entity_type == EntityType.LESSON:
         return 'document'
-    return 'video'
+    if entity.entity_type == EntityType.QUIZ:
+        return 'quiz'
+    return ENTITY_TO_CONTENT_TYPE.get(entity.entity_type, 'document')
 
 
 # ---------------------------------------------------------------------------
@@ -145,26 +147,42 @@ class LessonSerializer(serializers.Serializer):
     duration_minutes = serializers.IntegerField(allow_null=True)
     sort_order = serializers.IntegerField()
     is_preview = serializers.BooleanField()
+    is_completed = serializers.BooleanField(required=False, default=False)
+    is_locked = serializers.BooleanField(required=False, default=False)
     created_at = serializers.DateTimeField()
     updated_at = serializers.DateTimeField()
     attachments = ContentAttachmentSerializer(many=True)
+    questions = serializers.ListField(required=False)
 
     @classmethod
-    def from_entity(cls, entity, structure_link=None, request=None):
+    def from_entity(cls, entity, structure_link=None, request=None, is_completed=False, is_locked=False):
         content_type = _content_type_label(entity)
         content_body = ''
         video_url = ''
         resource_url = ''
         allow_download = False
         duration_minutes = None
+        questions_data = []
 
         if entity.entity_type == EntityType.VIDEO:
             try:
                 vd = entity.video_detail
                 video_url = vd.video_url or ''
+                if not video_url and vd.video_asset:
+                    video_url = vd.video_asset.url
                 allow_download = vd.allow_download
                 duration_minutes = (vd.duration_seconds // 60) if vd.duration_seconds else None
             except VideoContent.DoesNotExist:
+                pass
+        elif entity.entity_type == EntityType.QUIZ:
+            try:
+                from quizzes.models import QuizQuestion
+                from quizzes.serializers import QuizQuestionSerializer
+                qs_qs = QuizQuestion.objects.filter(
+                    quiz_entity=entity, is_active=True
+                ).prefetch_related('options').order_by('sort_order', 'id')
+                questions_data = QuizQuestionSerializer(qs_qs, many=True, context={'request': request}).data
+            except (ImportError, Exception):
                 pass
         elif entity.entity_type in (EntityType.RESOURCE, EntityType.ARTICLE, EntityType.LESSON):
             try:
@@ -203,9 +221,12 @@ class LessonSerializer(serializers.Serializer):
             'duration_minutes': duration_minutes,
             'sort_order': structure_link.sort_order if structure_link else 0,
             'is_preview': structure_link.is_preview if structure_link else False,
+            'is_completed': is_completed,
+            'is_locked': is_locked,
             'created_at': entity.created_at,
             'updated_at': entity.updated_at,
             'attachments': attachments,
+            'questions': questions_data,
         }
 
 
@@ -348,6 +369,15 @@ class CourseDetailSerializer(serializers.Serializer):
             .order_by('sort_order')
         )
 
+        progress_map = {}
+        if user and user.is_authenticated:
+            from enrollment.models import EntityProgress, ProgressStatus
+            prog_qs = EntityProgress.objects.filter(learner=user)
+            for p in prog_qs:
+                progress_map[p.entity_id] = (p.progress_status == ProgressStatus.COMPLETED)
+
+        from .models import UnlockRuleCode
+
         module_entities = []
         direct_lessons = []
         for link in child_links:
@@ -358,22 +388,66 @@ class CourseDetailSerializer(serializers.Serializer):
                 direct_lessons.append((child, link))
 
         modules_data = []
+        is_owner = False
+        if user and user.is_authenticated:
+            role = getattr(user, 'role', None)
+            if role == 'admin' or (role == 'instructor' and entity.owner_id == user.id):
+                is_owner = True
+
+        last_completed = True  # Start with unlocked
+
+        if direct_lessons:
+            dl_items = []
+            for child, link in direct_lessons:
+                is_done = progress_map.get(child.id, False)
+                is_locked = False
+                if not is_owner:
+                    if link.unlock_rule_code in (UnlockRuleCode.IMMEDIATE, UnlockRuleCode.AFTER_PREVIOUS):
+                        is_locked = not last_completed
+
+                lesson_data = LessonSerializer.from_entity(
+                    child, link, request,
+                    is_completed=is_done,
+                    is_locked=is_locked
+                )
+                lesson_data['module'] = None
+                dl_items.append(lesson_data)
+                last_completed = is_done if not is_locked else False
+
+            if dl_items:
+                modules_data.append({
+                    'id': 0,
+                    'course': entity.id,
+                    'title': 'Course Content',
+                    'description': '',
+                    'sort_order': -1,
+                    'created_at': entity.created_at,
+                    'lessons': dl_items,
+                })
+
         for mod_entity, mod_link in module_entities:
             mod_child_links = list(
                 ContentStructure.objects.filter(parent_entity=mod_entity)
-                .select_related(
-                    'child_entity',
-                    'child_entity__owner',
-                )
+                .select_related('child_entity', 'child_entity__owner')
                 .order_by('sort_order')
             )
             lessons = []
             for clink in mod_child_links:
+                child = clink.child_entity
+                is_done = progress_map.get(child.id, False)
+                is_locked = False
+                if not is_owner:
+                    if clink.unlock_rule_code in (UnlockRuleCode.IMMEDIATE, UnlockRuleCode.AFTER_PREVIOUS):
+                        is_locked = not last_completed
+
                 lesson_data = LessonSerializer.from_entity(
-                    clink.child_entity, clink, request
+                    child, clink, request,
+                    is_completed=is_done,
+                    is_locked=is_locked
                 )
                 lesson_data['module'] = mod_entity.id
                 lessons.append(lesson_data)
+                last_completed = is_done if not is_locked else False
 
             modules_data.append({
                 'id': mod_entity.id,
@@ -384,23 +458,6 @@ class CourseDetailSerializer(serializers.Serializer):
                 'created_at': mod_entity.created_at,
                 'lessons': lessons,
             })
-
-        if direct_lessons:
-            dl_items = []
-            for child, link in direct_lessons:
-                lesson_data = LessonSerializer.from_entity(child, link, request)
-                lesson_data['module'] = None
-                dl_items.append(lesson_data)
-            if dl_items:
-                modules_data.insert(0, {
-                    'id': 0,
-                    'course': entity.id,
-                    'title': 'Course Content',
-                    'description': '',
-                    'sort_order': -1,
-                    'created_at': entity.created_at,
-                    'lessons': dl_items,
-                })
 
         enrollment_status = None
         if user and user.is_authenticated:

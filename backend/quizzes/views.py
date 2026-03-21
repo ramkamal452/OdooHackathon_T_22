@@ -432,6 +432,29 @@ class QuizAttemptSubmitView(APIView):
                     source_attempt=attempt,
                 )
 
+            if is_passed:
+                from enrollment.models import EntityProgress, ProgressStatus
+                EntityProgress.objects.update_or_create(
+                    learner=request.user,
+                    entity=quiz_entity,
+                    defaults={
+                        'progress_status': ProgressStatus.COMPLETED,
+                        'progress_percent': 100,
+                        'completed_at': now,
+                        'last_accessed_at': now,
+                    }
+                )
+                # Recalculate course progress if applicable
+                from content.views import _find_course_for_child
+                course = _find_course_for_child(quiz_entity)
+                if course:
+                    from enrollment.models import CourseMembership
+                    try:
+                        membership = CourseMembership.objects.get(course_entity=course, user=request.user)
+                        membership.recalculate_progress()
+                    except CourseMembership.DoesNotExist:
+                        pass
+
             attempt.points_earned = points
             attempt.save(update_fields=[
                 'score', 'percentage', 'is_passed', 'attempt_no',

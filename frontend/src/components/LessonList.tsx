@@ -11,6 +11,8 @@ import {
   File,
   Image,
   Music,
+  HelpCircle,
+  Lock,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -30,6 +32,7 @@ const contentIcons: Record<string, React.ElementType> = {
   document: File,
   image: Image,
   audio: Music,
+  quiz: HelpCircle,
 };
 
 export default function LessonList({
@@ -88,37 +91,45 @@ export default function LessonList({
             </button>
             {isOpen && lessons.length > 0 && (
               <div className="border-t px-2 py-1.5">
-                {lessons.map((lesson) => {
-                  const Icon = contentIcons[lesson.content_type] || FileText;
-                  const completed = completedMap.get(lesson.id);
-                  const isCurrent = lesson.id === currentLessonId;
+                  {lessons.map((lesson) => {
+                    const Icon = contentIcons[lesson.content_type] || FileText;
+                    const completed = completedMap.get(lesson.id);
+                    const isCurrent = lesson.id === currentLessonId;
+                    const isLocked = !!lesson.is_locked;
 
-                  return (
-                    <button
-                      key={lesson.id}
-                      type="button"
-                      onClick={() => onSelect(lesson)}
-                      className={cn(
-                        'flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors',
-                        isCurrent
-                          ? 'bg-primary/10 text-primary font-medium'
-                          : 'hover:bg-muted/50 text-foreground'
-                      )}
-                    >
-                      {completed ? (
-                        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-                      ) : (
-                        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      )}
-                      <span className="min-w-0 truncate">{lesson.title}</span>
-                      {lesson.duration_minutes != null && (
-                        <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                          {lesson.duration_minutes}m
+                    return (
+                      <button
+                        key={lesson.id}
+                        type="button"
+                        onClick={() => !isLocked && onSelect(lesson)}
+                        disabled={isLocked}
+                        className={cn(
+                          'flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors',
+                          isCurrent
+                            ? 'bg-primary/10 text-primary font-medium'
+                            : isLocked
+                            ? 'text-muted-foreground/50 cursor-not-allowed'
+                            : 'hover:bg-muted/50 text-foreground'
+                        )}
+                      >
+                        {isLocked ? (
+                          <Lock className="h-4 w-4 shrink-0 text-muted-foreground/40" />
+                        ) : completed ? (
+                          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                        ) : (
+                          <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        )}
+                        <span className={cn('min-w-0 flex-1 truncate', isLocked && 'opacity-50')}>
+                          {lesson.title}
                         </span>
-                      )}
-                    </button>
-                  );
-                })}
+                        {lesson.duration_minutes != null && !isLocked && (
+                          <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                            {lesson.duration_minutes}m
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
               </div>
             )}
           </div>
