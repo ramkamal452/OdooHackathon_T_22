@@ -36,3 +36,7 @@ staticfiles/
 # Uploads
 uploads/
 media/
+
+
+#Docker
+entrypoint.sh
