@@ -3,10 +3,21 @@
 import DataTable, { type Column } from '@/components/DataTable';
 import Pagination from '@/components/Pagination';
 import StatsCard from '@/components/StatsCard';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useAdminPage } from '@/app/admin/AdminPageContext';
 import { formatDateTime, initialsFromName } from '@/lib/admin-format';
 import { fetchPage } from '@/lib/admin-fetch';
 import { api } from '@/lib/api';
+import { MoreVertical } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 interface ProgressRow {
@@ -21,14 +32,6 @@ interface ProgressRow {
 }
 
 const PAGE_SIZE = 10;
-
-function DotsIcon() {
-  return (
-    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
-    </svg>
-  );
-}
 
 export default function AdminLessonProgressPage() {
   const { setHeader, search } = useAdminPage();
@@ -121,7 +124,7 @@ export default function AdminLessonProgressPage() {
     {
       key: 'id',
       header: 'ID',
-      render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">LP-{r.id}</span>,
+      render: (r) => <span className="font-mono text-muted-foreground">LP-{r.id}</span>,
     },
     {
       key: 'learner',
@@ -134,8 +137,8 @@ export default function AdminLessonProgressPage() {
               {initialsFromName(p[0], p[1] || '', r.learner_email)}
             </div>
             <div>
-              <p className="font-medium text-gray-900 dark:text-white">{r.learner_name}</p>
-              <p className="text-xs text-gray-800 dark:text-gray-200">{r.learner_email}</p>
+              <p className="font-medium text-foreground">{r.learner_name}</p>
+              <p className="text-xs text-muted-foreground">{r.learner_email}</p>
             </div>
           </div>
         );
@@ -146,7 +149,7 @@ export default function AdminLessonProgressPage() {
       header: 'Lesson Title',
       render: (r) => (
         <div>
-          <p className="font-medium text-gray-900 dark:text-white">{r.lesson_title}</p>
+          <p className="font-medium text-foreground">{r.lesson_title}</p>
           <p className="text-xs font-medium text-blue-600 dark:text-blue-400">{r.course_title}</p>
         </div>
       ),
@@ -156,13 +159,16 @@ export default function AdminLessonProgressPage() {
       header: 'Status',
       render: (r) =>
         r.is_completed ? (
-          <span className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400">
+          <Badge
+            variant="outline"
+            className="border-emerald-500/20 bg-emerald-500/10 font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400"
+          >
             COMPLETED
-          </span>
+          </Badge>
         ) : (
-          <span className="inline-flex rounded-full border border-gray-500/20 bg-gray-500/10 px-2.5 py-0.5 text-xs font-bold text-gray-600 dark:border-gray-400/10 dark:bg-gray-400/10 dark:text-gray-400">
+          <Badge variant="secondary" className="font-bold">
             NOT COMPLETED
-          </span>
+          </Badge>
         ),
     },
     {
@@ -179,9 +185,9 @@ export default function AdminLessonProgressPage() {
       key: 'actions',
       header: 'Actions',
       render: () => (
-        <button type="button" className="rounded p-1 text-gray-400 hover:bg-white/10 dark:hover:text-gray-300" aria-label="More">
-          <DotsIcon />
-        </button>
+        <Button type="button" variant="ghost" size="icon" className="text-muted-foreground" aria-label="More">
+          <MoreVertical className="size-5" />
+        </Button>
       ),
     },
   ];
@@ -197,7 +203,7 @@ export default function AdminLessonProgressPage() {
         <StatsCard label="Stalled" value={statsLoading ? '—' : stats.stalled} variant="warning" />
       </div>
       <div className="flex flex-wrap items-center gap-4">
-        <div className="flex flex-wrap gap-2 rounded-xl border border-white/20 bg-white/70 p-1 shadow-lg shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-white/5 dark:shadow-black/20">
+        <div className="inline-flex flex-wrap gap-1 rounded-lg border border-border bg-muted/50 p-1">
           {(
             [
               ['all', 'All'],
@@ -205,37 +211,38 @@ export default function AdminLessonProgressPage() {
               ['not', 'Not Completed'],
             ] as const
           ).map(([k, label]) => (
-            <button
+            <Button
               key={k}
               type="button"
+              variant={tab === k ? 'default' : 'ghost'}
+              size="sm"
               onClick={() => {
                 setTab(k);
                 setPage(1);
               }}
-              className={`rounded-md px-4 py-2 text-sm font-medium transition ${
-                tab === k ? 'bg-blue-600 text-white shadow-sm dark:bg-blue-500' : 'text-gray-600 hover:bg-white/50 dark:text-gray-400 dark:hover:bg-white/10'
-              }`}
             >
               {label}
-            </button>
+            </Button>
           ))}
         </div>
-        <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            Date Range
-          </label>
-          <select
-            className="glass-input mt-1 text-sm"
+        <div className="space-y-2">
+          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Date Range</Label>
+          <Select
             value={dateRange}
-            onChange={(e) => {
-              setDateRange(e.target.value);
+            onValueChange={(v) => {
+              setDateRange(v ?? 'any');
               setPage(1);
             }}
           >
-            <option value="any">Any</option>
-            <option value="7d">Last 7 days</option>
-            <option value="30d">Last 30 days</option>
-          </select>
+            <SelectTrigger className="mt-1 w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="any">Any</SelectItem>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <DataTable columns={columns} data={rows} loading={loading} emptyMessage="No progress rows found." />

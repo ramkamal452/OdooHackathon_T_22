@@ -1,122 +1,163 @@
 'use client';
 
 import DataTable, { type Column } from '@/components/DataTable';
+import Modal from '@/components/Modal';
+import { useToast } from '@/components/Toast';
 import Pagination from '@/components/Pagination';
 import StatsCard from '@/components/StatsCard';
-import { useToast } from '@/components/Toast';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useAdminPage } from '@/app/admin/AdminPageContext';
-import { formatDate, initialsFromName } from '@/lib/admin-format';
+import { formatRelativeAgo } from '@/lib/admin-format';
 import { fetchPage } from '@/lib/admin-fetch';
-import { api } from '@/lib/api';
-import { useCallback, useEffect, useState } from 'react';
+import { api, mediaUrl } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { BookOpen, FilePen, Filter, Pencil, Timer, Trash2, Users } from 'lucide-react';
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 
-interface EnrollmentRow {
+interface CourseRow extends Record<string, unknown> {
   id: number;
-  learner_name: string;
-  learner_email: string;
-  course_title: string;
-  status: string;
-  progress_percent: number;
-  enrolled_at?: string;
+  title: string;
+  slug?: string;
+  instructor_name?: string;
+  category_name?: string | null;
+  level?: string;
+  status?: string;
+  lesson_count?: number;
+  duration_minutes?: number | null;
+  created_at?: string;
+}
+
+interface CategoryOption {
+  id: number;
+  name: string;
 }
 
 const PAGE_SIZE = 10;
 
-function DotsIcon() {
-  return (
-    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
-    </svg>
-  );
-}
+const LEVEL_FILTER_ANY = '__any__';
+const CATEGORY_NONE = '__none__';
 
-export default function AdminEnrollmentsPage() {
+export default function AdminCoursesPage() {
   const { setHeader, search } = useAdminPage();
   const { toast } = useToast();
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState('');
-  const [courseId, setCourseId] = useState('');
+  const [tab, setTab] = useState<'all' | 'published' | 'draft'>('all');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [categoryId, setCategoryId] = useState('');
+  const [level, setLevel] = useState('');
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
-  const [rows, setRows] = useState<EnrollmentRow[]>([]);
+  const [rows, setRows] = useState<CourseRow[]>([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState({
-    totalActive: 0,
-    completionRate: 0,
-    dropped: 0,
-    newThisMonth: 0,
+    total: 0,
+    drafts: 0,
+    instructors: 0,
+    avgDuration: 0,
   });
-  const [courses, setCourses] = useState<{ id: number; title: string }[]>([]);
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [courseTitle, setCourseTitle] = useState('');
+  const [courseShortDescription, setCourseShortDescription] = useState('');
+  const [courseCategoryId, setCourseCategoryId] = useState('');
+  const [courseLevel, setCourseLevel] = useState('beginner');
+  const [deleteConfirm, setDeleteConfirm] = useState<CourseRow | null>(null);
+
+  const statusParam = useMemo(() => {
+    if (tab === 'published') return 'published';
+    if (tab === 'draft') return 'draft';
+    return undefined;
+  }, [tab]);
 
   useEffect(() => {
     setHeader({
-      title: 'Enrollment Registry',
-      subtitle: 'Track learner enrollments and progress.',
-      searchPlaceholder: 'Search by learner email or course title…',
+      title: 'Course Catalog',
+      subtitle: 'Browse and manage all courses on the platform.',
+      searchPlaceholder: 'Search courses by title…',
+      primaryActionLabel: '+ New Course',
+      onPrimaryAction: () => setModalOpen(true),
     });
   }, [setHeader]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await fetchPage<{ id: number; title: string }>('/api/admin/courses/', { page: 1 });
-        setCourses(data.results.map((c) => ({ id: c.id, title: c.title })));
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Failed to load courses';
-        toast(msg, 'error');
-      }
-    })();
+  const loadCategories = useCallback(async () => {
+    setCategoriesLoading(true);
+    try {
+      const { data } = await api.get<CategoryOption[]>('/api/categories/');
+      setCategories(Array.isArray(data) ? data : []);
+    } catch {
+      toast('Failed to load categories', 'error');
+      setCategories([]);
+    } finally {
+      setCategoriesLoading(false);
+    }
   }, [toast]);
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    loadCategories();
+  }, [modalOpen, loadCategories]);
 
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
     try {
-      const [active, completed, dropped, all] = await Promise.all([
-        fetchPage<EnrollmentRow>('/api/admin/enrollments/', { page: 1, status: 'active', search }),
-        fetchPage<EnrollmentRow>('/api/admin/enrollments/', { page: 1, status: 'completed', search }),
-        fetchPage<EnrollmentRow>('/api/admin/enrollments/', { page: 1, status: 'dropped', search }),
-        fetchPage<EnrollmentRow>('/api/admin/enrollments/', { page: 1, search }),
+      const [all, drafts, listData] = await Promise.all([
+        fetchPage<CourseRow>('/api/admin/courses/', { page: 1, search }),
+        fetchPage<CourseRow>('/api/admin/courses/', { page: 1, status: 'draft', search }),
+        fetchAllCoursesForStats(search),
       ]);
-      const denom = all.count || 1;
-      const completionRate = Math.round((completed.count / denom) * 100);
-      const newMonth = await countNewThisMonth(search);
       setStats({
-        totalActive: active.count,
-        completionRate,
-        dropped: dropped.count,
-        newThisMonth: newMonth,
+        total: all.count,
+        drafts: drafts.count,
+        instructors: listData.uniqueInstructors,
+        avgDuration: listData.avgDuration,
       });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load enrollment stats';
-      toast(msg, 'error');
     } finally {
       setStatsLoading(false);
     }
-  }, [search, toast]);
+  }, [search]);
 
   const loadTable = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get<{ count: number; results: EnrollmentRow[] }>(
-        '/api/admin/enrollments/',
+      const { data } = await api.get<{ count: number; results: CourseRow[] }>(
+        '/api/admin/courses/',
         {
           params: {
             page,
             search,
-            status: status || undefined,
-            course: courseId || undefined,
+            status: statusParam,
+            category: categoryId || undefined,
+            level: level || undefined,
           },
         }
       );
       setRows(data.results);
       setTotal(data.count);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load enrollments';
-      toast(msg, 'error');
     } finally {
       setLoading(false);
     }
-  }, [page, search, status, courseId, toast]);
+  }, [page, search, statusParam, categoryId, level]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [tab, search, categoryId, level]);
 
   useEffect(() => {
     loadStats();
@@ -126,85 +167,153 @@ export default function AdminEnrollmentsPage() {
     loadTable();
   }, [loadTable]);
 
-  const columns: Column<EnrollmentRow>[] = [
+  function resetCreateForm() {
+    setCourseTitle('');
+    setCourseShortDescription('');
+    setCourseCategoryId('');
+    setCourseLevel('beginner');
+  }
+
+  async function handleCreateCourse(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const t = courseTitle.trim();
+    if (!t) {
+      toast('Title is required', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post('/api/courses/', {
+        title: t,
+        short_description: courseShortDescription.trim() || undefined,
+        category: courseCategoryId ? Number(courseCategoryId) : null,
+        level: courseLevel,
+      });
+      toast('Course created!', 'success');
+      setModalOpen(false);
+      resetCreateForm();
+      loadStats();
+      loadTable();
+    } catch {
+      toast('Failed to create course', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteCourse(row: CourseRow) {
+    try {
+      await api.delete(`/api/courses/${row.id}/`);
+      toast('Course deleted!', 'success');
+      setDeleteConfirm(null);
+      loadStats();
+      loadTable();
+    } catch {
+      toast('Failed to delete course', 'error');
+    }
+  }
+
+  const columns: Column<CourseRow>[] = [
     {
       key: 'id',
       header: 'ID',
-      render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">#EN-{r.id}</span>,
+      render: (r) => <span className="font-mono text-muted-foreground">#CR-{r.id}</span>,
     },
     {
-      key: 'learner',
-      header: 'Learner',
+      key: 'title',
+      header: 'Title & Thumbnail',
+      render: (r) => {
+        const thumb = mediaUrl((r as { thumbnail?: string | null }).thumbnail);
+        return (
+          <div className="flex max-w-xs items-start gap-3">
+            <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
+              {thumb ? (
+                <img src={thumb} alt="" className="h-12 w-16 object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                  No img
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="font-medium text-foreground">{r.title}</p>
+              <p className="text-xs text-muted-foreground">Updated {formatRelativeAgo(r.created_at)}</p>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'instructor',
+      header: 'Instructor',
       render: (r) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/20 text-xs font-medium text-blue-600 dark:bg-blue-400/20 dark:text-blue-400">
-            {(() => {
-              const p = r.learner_name.trim().split(/\s+/);
-              return initialsFromName(p[0], p[1] || '', r.learner_email);
-            })()}
-          </div>
-          <div>
-            <p className="font-medium text-gray-900 dark:text-white">{r.learner_name}</p>
-            <p className="text-xs text-gray-800 dark:text-gray-200">{r.learner_email}</p>
-          </div>
+        <div className="flex items-center gap-2">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
+              {(r.instructor_name || '?').slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-foreground">{r.instructor_name || '—'}</span>
         </div>
       ),
     },
     {
-      key: 'course',
-      header: 'Course',
-      render: (r) => (
-        <div>
-          <p className="font-medium text-gray-900 dark:text-white">{r.course_title}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Enrolled course</p>
-        </div>
-      ),
+      key: 'category',
+      header: 'Category',
+      render: (r) =>
+        r.category_name ? (
+          <Badge variant="secondary">{r.category_name}</Badge>
+        ) : (
+          '—'
+        ),
     },
     {
-      key: 'enrolled_at',
-      header: 'Enrolled At',
-      render: (r) => formatDate(r.enrolled_at),
+      key: 'level',
+      header: 'Level',
+      render: (r) => <span className="capitalize text-foreground">{r.level || '—'}</span>,
+    },
+    {
+      key: 'duration',
+      header: 'Duration',
+      render: (r) => (
+        <span className="text-foreground">
+          {r.duration_minutes != null ? `${r.duration_minutes} min` : '—'}
+        </span>
+      ),
     },
     {
       key: 'status',
       header: 'Status',
       render: (r) =>
-        r.status === 'active' ? (
-          <span className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400">
-            Active
-          </span>
-        ) : r.status === 'completed' ? (
-          <span className="inline-flex rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:border-blue-400/20 dark:bg-blue-400/10 dark:text-blue-300">
-            Completed
-          </span>
+        r.status === 'published' ? (
+          <Badge variant="default">Published</Badge>
         ) : (
-          <span className="inline-flex rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-0.5 text-xs font-semibold text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-400">
-            Dropped
-          </span>
+          <Badge variant="secondary">Draft</Badge>
         ),
-    },
-    {
-      key: 'progress',
-      header: 'Progress',
-      render: (r) => (
-        <div className="flex items-center gap-2">
-          <div className="h-1.5 w-20 rounded-full bg-gray-200 dark:bg-white/10">
-            <div
-              className="h-full rounded-full bg-blue-600 dark:bg-blue-500"
-              style={{ width: `${r.progress_percent}%` }}
-            />
-          </div>
-          <span className="text-sm tabular-nums">{r.progress_percent}%</span>
-        </div>
-      ),
     },
     {
       key: 'actions',
       header: 'Actions',
-      render: () => (
-        <button type="button" className="rounded p-1 text-gray-400 hover:bg-white/10 hover:text-gray-600 dark:hover:text-gray-300" aria-label="More">
-          <DotsIcon />
-        </button>
+      className: 'w-28',
+      render: (r) => (
+        <div className="flex items-center gap-1">
+          <Link
+            href={`/dashboard/instructor/courses/${r.id}/edit`}
+            className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }))}
+            aria-label="Edit course"
+          >
+            <Pencil className="h-4 w-4" />
+          </Link>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setDeleteConfirm(r)}
+            aria-label="Delete course"
+            className="text-destructive hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ];
@@ -214,74 +323,215 @@ export default function AdminEnrollmentsPage() {
   return (
     <div className="space-y-8">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatsCard label="Total Active" value={statsLoading ? '—' : stats.totalActive} />
-        <StatsCard label="Completion Rate" value={statsLoading ? '—' : `${stats.completionRate}%`} />
-        <StatsCard label="Dropped Students" value={statsLoading ? '—' : stats.dropped} />
-        <StatsCard label="New This Month" value={statsLoading ? '—' : stats.newThisMonth} />
+        <StatsCard label="Total Courses" value={statsLoading ? '—' : stats.total} icon={<BookOpen className="h-5 w-5" />} />
+        <StatsCard label="Active Drafts" value={statsLoading ? '—' : stats.drafts} icon={<FilePen className="h-5 w-5" />} />
+        <StatsCard label="Instructors" value={statsLoading ? '—' : stats.instructors} icon={<Users className="h-5 w-5" />} />
+        <StatsCard
+          label="Avg. Duration"
+          value={statsLoading ? '—' : `${Math.round(stats.avgDuration)} min`}
+          icon={<Timer className="h-5 w-5" />}
+        />
       </div>
-      <div className="flex flex-wrap gap-4">
-        <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</label>
-          <select
-            className="glass-input mt-1 text-sm"
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">All</option>
-            <option value="active">Active</option>
-            <option value="completed">Completed</option>
-            <option value="dropped">Dropped</option>
-          </select>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="inline-flex flex-wrap gap-1 rounded-lg border border-border bg-muted/50 p-1">
+          {(['all', 'published', 'draft'] as const).map((t) => (
+            <Button
+              key={t}
+              type="button"
+              variant={tab === t ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setTab(t)}
+              className="capitalize"
+            >
+              {t === 'all' ? 'All Courses' : t === 'published' ? 'Published' : 'Drafts'}
+            </Button>
+          ))}
         </div>
-        <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Course</label>
-          <select
-            className="glass-input mt-1 text-sm"
-            value={courseId}
-            onChange={(e) => {
-              setCourseId(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">All</option>
-            {courses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
-        </div>
+        <Button type="button" variant="outline" size="sm" onClick={() => setFilterOpen((v) => !v)} className="gap-2">
+          <Filter className="h-4 w-4" />
+          Filter
+        </Button>
       </div>
-      <DataTable columns={columns} data={rows} loading={loading} emptyMessage="No enrollments found." />
+      {filterOpen ? (
+        <Card className="flex flex-wrap gap-4 border-dashed p-4">
+          <div className="space-y-2">
+            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Category ID</Label>
+            <Input
+              className="mt-1 max-w-[12rem] text-sm"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              placeholder="e.g. 1"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Level</Label>
+            <Select
+              value={level === '' ? LEVEL_FILTER_ANY : level}
+              onValueChange={(v) => {
+                if (v == null || v === LEVEL_FILTER_ANY) setLevel('');
+                else setLevel(v);
+              }}
+            >
+              <SelectTrigger className="mt-1 w-[12rem]">
+                <SelectValue placeholder="Any" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={LEVEL_FILTER_ANY}>Any</SelectItem>
+                <SelectItem value="beginner">Beginner</SelectItem>
+                <SelectItem value="intermediate">Intermediate</SelectItem>
+                <SelectItem value="advanced">Advanced</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </Card>
+      ) : null}
+      <DataTable columns={columns} data={rows} loading={loading} emptyMessage="No courses found." />
       <Pagination
         currentPage={page}
         totalPages={totalPages}
         totalItems={total}
         pageSize={PAGE_SIZE}
         onPageChange={setPage}
-        itemName="enrollments"
+        itemName="courses"
       />
+
+      <Modal
+        open={modalOpen}
+        onClose={() => {
+          setModalOpen(false);
+          resetCreateForm();
+        }}
+        title="New Course"
+        subtitle="Create a course draft. You can add modules and lessons from the instructor editor."
+        size="lg"
+      >
+        <form onSubmit={handleCreateCourse} className="space-y-4">
+          <div className="space-y-2">
+            <Label>
+              Title <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              required
+              value={courseTitle}
+              onChange={(e) => setCourseTitle(e.target.value)}
+              placeholder="Course title"
+              autoFocus
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Short description</Label>
+            <Textarea
+              value={courseShortDescription}
+              onChange={(e) => setCourseShortDescription(e.target.value)}
+              placeholder="Brief summary for listings"
+              rows={3}
+              className="min-h-[88px] resize-y"
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select
+                value={courseCategoryId === '' ? CATEGORY_NONE : String(courseCategoryId)}
+                onValueChange={(v) => {
+                  if (v == null || v === CATEGORY_NONE) setCourseCategoryId('');
+                  else setCourseCategoryId(v);
+                }}
+                disabled={categoriesLoading}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="— None —" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={CATEGORY_NONE}>— None —</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Level</Label>
+              <Select
+                value={courseLevel}
+                onValueChange={(v) => {
+                  if (v) setCourseLevel(v);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="beginner">Beginner</SelectItem>
+                  <SelectItem value="intermediate">Intermediate</SelectItem>
+                  <SelectItem value="advanced">Advanced</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 border-t pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setModalOpen(false);
+                resetCreateForm();
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Creating…' : 'Create course'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        title="Delete course"
+        subtitle="This action cannot be undone."
+        size="sm"
+      >
+        <p className="text-sm text-muted-foreground">
+          Are you sure you want to delete <strong className="text-foreground">{deleteConfirm?.title}</strong>?
+        </p>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={() => setDeleteConfirm(null)}>
+            Cancel
+          </Button>
+          <Button type="button" variant="destructive" onClick={() => deleteConfirm && handleDeleteCourse(deleteConfirm)}>
+            Delete
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }
 
-async function countNewThisMonth(search?: string): Promise<number> {
-  const start = new Date();
-  start.setDate(1);
-  start.setHours(0, 0, 0, 0);
+async function fetchAllCoursesForStats(search?: string) {
   let page = 1;
-  let n = 0;
+  const instructorNames = new Set<string>();
+  let durationSum = 0;
+  let durationCount = 0;
   while (true) {
-    const data = await fetchPage<EnrollmentRow>('/api/admin/enrollments/', { page, search });
-    for (const row of data.results) {
-      if (row.enrolled_at && new Date(row.enrolled_at) >= start) n += 1;
+    const data = await fetchPage<CourseRow>('/api/admin/courses/', { page, search });
+    for (const c of data.results) {
+      if (c.instructor_name) instructorNames.add(c.instructor_name);
+      if (c.duration_minutes != null) {
+        durationSum += c.duration_minutes;
+        durationCount += 1;
+      }
     }
     if (!data.next) break;
     page += 1;
-    if (page > 100) break;
+    if (page > 200) break;
   }
-  return n;
+  return {
+    uniqueInstructors: instructorNames.size,
+    avgDuration: durationCount ? durationSum / durationCount : 0,
+  };
 }

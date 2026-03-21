@@ -1,6 +1,11 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/auth';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
@@ -28,56 +33,55 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden surface-bg px-4 py-12">
-      <div className="gradient-orb w-96 h-96 bg-blue-400 -top-20 -left-48" />
-      <div className="gradient-orb w-80 h-80 bg-purple-400 bottom-0 -right-40" />
-
-      <div className="relative z-10 w-full max-w-md">
-        <div className="rounded-3xl bg-white/70 dark:bg-white/5 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-2xl shadow-black/5 dark:shadow-black/20 p-8">
-          <p className="text-center text-xl font-bold text-blue-600 dark:text-blue-400">Learnova</p>
-          <h1 className="mt-4 text-center text-2xl font-bold text-gray-900 dark:text-white">Welcome back</h1>
-          <p className="mt-1 text-center text-sm text-gray-600 dark:text-gray-400">Sign in to continue learning</p>
-          <form onSubmit={onSubmit} className="mt-8 space-y-5">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="glass-input mt-1 w-full"
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="glass-input mt-1 w-full"
-              />
-            </div>
-            {error && <p className="text-sm text-rose-500 dark:text-rose-400">{error}</p>}
-            <button type="submit" disabled={pending} className="btn-primary w-full">
-              {pending ? 'Signing in…' : 'Sign in'}
-            </button>
-          </form>
-          <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-            No account?{' '}
-            <Link href="/register" className="font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
-              Register
-            </Link>
-          </p>
+    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md">
+        <div className="mb-8 flex flex-col items-center gap-2">
+          <Image src="/logo/logo.png" alt="Learnova" width={48} height={48} className="h-12 w-12 object-contain" priority />
+          <h1 className="text-2xl font-bold">Welcome back</h1>
+          <p className="text-sm text-muted-foreground">Sign in to continue learning</p>
         </div>
+        <Card>
+          <form onSubmit={onSubmit}>
+            <CardContent className="space-y-4 pt-6">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+            </CardContent>
+            <CardFooter className="flex flex-col gap-4">
+              <Button type="submit" disabled={pending} className="w-full">
+                {pending ? 'Signing in…' : 'Sign in'}
+              </Button>
+              <p className="text-center text-sm text-muted-foreground">
+                No account?{' '}
+                <Link href="/register" className="font-medium text-primary hover:underline">
+                  Register
+                </Link>
+              </p>
+            </CardFooter>
+          </form>
+        </Card>
       </div>
     </div>
   );

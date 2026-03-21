@@ -2,9 +2,20 @@
 
 import DataTable, { type Column } from '@/components/DataTable';
 import Pagination from '@/components/Pagination';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useAdminPage } from '@/app/admin/AdminPageContext';
 import { fetchPage } from '@/lib/admin-fetch';
 import { api } from '@/lib/api';
+import { Check, Pencil, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 interface OptionRow {
@@ -16,19 +27,7 @@ interface OptionRow {
 }
 
 const PAGE_SIZE = 10;
-
-function PencilIcon() {
-  return (
-    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-      />
-    </svg>
-  );
-}
+const ALL_QUESTIONS = '__all__';
 
 export default function AdminQuizOptionsPage() {
   const { setHeader, search } = useAdminPage();
@@ -96,15 +95,15 @@ export default function AdminQuizOptionsPage() {
     {
       key: 'id',
       header: 'ID',
-      render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">#OPT-{r.id}</span>,
+      render: (r) => <span className="font-mono text-muted-foreground">#OPT-{r.id}</span>,
     },
     {
       key: 'question',
       header: 'Linked Question',
       render: (r) => (
         <div>
-          <p className="max-w-sm text-sm text-gray-900 dark:text-white">{r.question_text_preview}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Quiz module context</p>
+          <p className="max-w-sm text-sm text-foreground">{r.question_text_preview}</p>
+          <p className="text-xs text-muted-foreground">Quiz module context</p>
         </div>
       ),
     },
@@ -112,7 +111,7 @@ export default function AdminQuizOptionsPage() {
       key: 'option_text',
       header: 'Option Content',
       render: (r) => (
-        <div className="max-w-md rounded-lg border border-white/20 bg-white/50 px-3 py-2 text-sm text-gray-800 backdrop-blur-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-200">
+        <div className="max-w-md rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-foreground">
           {r.option_text}
         </div>
       ),
@@ -122,19 +121,18 @@ export default function AdminQuizOptionsPage() {
       header: 'Status',
       render: (r) =>
         r.is_correct ? (
-          <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400">
-            <svg className="mr-1 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+          <Badge
+            variant="outline"
+            className="gap-0.5 border-emerald-500/20 bg-emerald-500/10 font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400"
+          >
+            <Check className="size-3.5" />
             CORRECT
-          </span>
+          </Badge>
         ) : (
-          <span className="inline-flex items-center rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-0.5 text-xs font-bold text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-400">
-            <svg className="mr-1 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+          <Badge variant="destructive" className="gap-0.5 font-bold">
+            <X className="size-3.5" />
             INCORRECT
-          </span>
+          </Badge>
         ),
     },
     {
@@ -146,9 +144,9 @@ export default function AdminQuizOptionsPage() {
       key: 'actions',
       header: 'Actions',
       render: () => (
-        <button type="button" className="rounded p-1 text-gray-500 hover:bg-white/10 hover:text-blue-600 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-blue-400" aria-label="Edit">
-          <PencilIcon />
-        </button>
+        <Button type="button" variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" aria-label="Edit">
+          <Pencil className="size-4" />
+        </Button>
       ),
     },
   ];
@@ -158,37 +156,39 @@ export default function AdminQuizOptionsPage() {
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end gap-4">
-        <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Question</label>
-          <select
-            className="glass-input mt-1 max-w-xs text-sm"
-            value={questionId}
-            onChange={(e) => {
-              setQuestionId(e.target.value);
+        <div className="space-y-2">
+          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Question</Label>
+          <Select
+            value={questionId || ALL_QUESTIONS}
+            onValueChange={(v) => {
+              const s = v ?? '';
+              setQuestionId(s === ALL_QUESTIONS ? '' : s);
               setPage(1);
             }}
           >
-            <option value="">All</option>
-            {questions.map((q) => (
-              <option key={q.id} value={q.id}>
-                {q.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="mt-1 w-full min-w-[200px] max-w-xs">
+              <SelectValue placeholder="All questions" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_QUESTIONS}>All</SelectItem>
+              {questions.map((q) => (
+                <SelectItem key={q.id} value={String(q.id)}>
+                  {q.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Sort Order</span>
-          <button
+          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Sort Order</span>
+          <Button
             type="button"
+            variant={sortAsc ? 'default' : 'outline'}
+            size="sm"
             onClick={() => setSortAsc((v) => !v)}
-            className={`rounded-full border px-4 py-2 text-sm font-medium ${
-              sortAsc
-                ? 'border-blue-500/20 bg-blue-500/10 text-blue-800 dark:border-blue-400/20 dark:bg-blue-400/10 dark:text-blue-300'
-                : 'border-white/20 bg-white/50 text-gray-700 dark:border-white/10 dark:bg-white/10 dark:text-gray-300'
-            }`}
           >
             {sortAsc ? 'Ascending' : 'Descending'}
-          </button>
+          </Button>
         </div>
       </div>
       <DataTable columns={columns} data={rows} loading={loading} emptyMessage="No options found." />

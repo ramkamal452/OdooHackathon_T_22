@@ -1,13 +1,13 @@
 'use client';
 
-import { UserRole } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  roles?: UserRole[];
+  roles?: string[];
 }
 
 export default function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
@@ -20,21 +20,24 @@ export default function ProtectedRoute({ children, roles }: ProtectedRouteProps)
       router.replace('/login');
       return;
     }
-    if (roles?.length && !roles.includes(user.role)) {
+    if (roles && !roles.includes(user.role)) {
       router.replace('/dashboard');
     }
-  }, [user, loading, roles, router]);
+  }, [user, loading, router, roles]);
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent dark:border-blue-400" />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="space-y-4 w-full max-w-md px-4">
+          <Skeleton className="h-8 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-32 w-full" />
+        </div>
       </div>
     );
   }
 
-  if (!user) return null;
-  if (roles?.length && !roles.includes(user.role)) return null;
+  if (!user || (roles && !roles.includes(user.role))) return null;
 
   return <>{children}</>;
 }

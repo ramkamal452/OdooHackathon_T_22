@@ -1,7 +1,12 @@
 'use client';
 
 import CourseCard from '@/components/CourseCard';
+import DashboardHeader from '@/components/DashboardHeader';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { CourseListItem, api, unwrapList } from '@/lib/api';
+import { Search } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 export default function CoursesPage() {
@@ -30,50 +35,55 @@ export default function CoursesPage() {
   }, [load]);
 
   return (
-    <div className="min-h-screen surface-bg">
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Course Catalog</h1>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">
-              Explore published courses and start learning at your own pace.
-            </p>
-          </div>
-          <div className="flex w-full max-w-xl flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="glass-card flex flex-1 items-center gap-2 rounded-full px-3 py-2">
-              <input
+    <>
+      <DashboardHeader
+        title="Course Catalog"
+        subtitle="Explore published courses and start learning at your own pace."
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="relative hidden sm:block">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
                 type="search"
                 placeholder="Search courses…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && load()}
-                className="glass-input min-w-0 flex-1 rounded-full"
+                className="w-64 pl-9"
               />
             </div>
-            <button type="button" onClick={() => load()} className="btn-primary shrink-0">
-              Search
-            </button>
+            <Button size="sm" onClick={() => load()}>Search</Button>
           </div>
-        </div>
+        }
+      />
 
+      <div className="flex-1 overflow-auto px-4 py-8 lg:px-8">
         {loading ? (
-          <div className="flex min-h-[40vh] items-center justify-center">
-            <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-500 border-t-transparent dark:border-blue-400" />
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="space-y-3">
+                <Skeleton className="aspect-video w-full rounded-xl" />
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            ))}
           </div>
         ) : error ? (
-          <p className="mt-8 text-rose-500 dark:text-rose-400">{error}</p>
+          <p className="mt-8 text-destructive">{error}</p>
+        ) : courses.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Search className="h-12 w-12 text-muted-foreground/40" />
+            <p className="mt-4 text-lg font-medium">No courses found</p>
+            <p className="mt-1 text-muted-foreground">Try adjusting your search terms</p>
+          </div>
         ) : (
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {courses.map((c) => (
               <CourseCard key={c.id} course={c} href={`/courses/${c.id}`} />
             ))}
           </div>
         )}
-
-        {!loading && !error && courses.length === 0 && (
-          <p className="mt-12 text-center text-gray-500 dark:text-gray-400">No courses match your search.</p>
-        )}
       </div>
-    </div>
+    </>
   );
 }

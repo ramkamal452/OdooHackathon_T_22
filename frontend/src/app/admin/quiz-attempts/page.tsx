@@ -3,6 +3,16 @@
 import DataTable, { type Column } from '@/components/DataTable';
 import Pagination from '@/components/Pagination';
 import StatsCard from '@/components/StatsCard';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useAdminPage } from '@/app/admin/AdminPageContext';
 import { formatDateTime, initialsFromName } from '@/lib/admin-format';
 import { fetchPage } from '@/lib/admin-fetch';
@@ -23,6 +33,8 @@ interface AttemptRow {
 }
 
 const PAGE_SIZE = 10;
+const ALL_QUIZZES = '__all__';
+const ALL_STATUS = '__all__';
 
 export default function AdminQuizAttemptsPage() {
   const { setHeader, search } = useAdminPage();
@@ -118,11 +130,14 @@ export default function AdminQuizAttemptsPage() {
     loadTable();
   }, [loadTable]);
 
+  const passedSelectValue =
+    passed === '' ? ALL_STATUS : passed === 'passed' ? 'passed' : passed === 'failed' ? 'failed' : ALL_STATUS;
+
   const columns: Column<AttemptRow>[] = [
     {
       key: 'id',
       header: 'ID',
-      render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">#QA-{r.id}</span>,
+      render: (r) => <span className="font-mono text-muted-foreground">#QA-{r.id}</span>,
     },
     {
       key: 'learner',
@@ -134,12 +149,12 @@ export default function AdminQuizAttemptsPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/20 text-xs font-medium text-blue-600 dark:bg-blue-400/20 dark:text-blue-400">
               {initialsFromName(p[0], p[1] || '', r.learner_email)}
             </div>
-            <span className="font-medium text-gray-900 dark:text-white">{r.learner_name}</span>
+            <span className="font-medium text-foreground">{r.learner_name}</span>
           </div>
         );
       },
     },
-    { key: 'quiz_title', header: 'Quiz Title', render: (r) => <span className="font-medium text-gray-900 dark:text-white">{r.quiz_title}</span> },
+    { key: 'quiz_title', header: 'Quiz Title', render: (r) => <span className="font-medium text-foreground">{r.quiz_title}</span> },
     {
       key: 'score',
       header: 'Score',
@@ -154,9 +169,9 @@ export default function AdminQuizAttemptsPage() {
       header: 'Percentage',
       render: (r) => (
         <div className="flex items-center gap-2">
-          <div className="h-1.5 w-20 rounded-full bg-gray-200 dark:bg-white/10">
+          <div className="h-1.5 w-20 rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-blue-600 dark:bg-blue-500"
+              className="h-full rounded-full bg-primary"
               style={{ width: `${Math.min(100, r.percentage)}%` }}
             />
           </div>
@@ -169,13 +184,16 @@ export default function AdminQuizAttemptsPage() {
       header: 'Status',
       render: (r) =>
         r.is_passed ? (
-          <span className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400">
+          <Badge
+            variant="outline"
+            className="border-emerald-500/20 bg-emerald-500/10 font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400"
+          >
             PASSED
-          </span>
+          </Badge>
         ) : (
-          <span className="inline-flex rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-0.5 text-xs font-bold text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-400">
+          <Badge variant="destructive" className="font-bold">
             FAILED
-          </span>
+          </Badge>
         ),
     },
     {
@@ -201,50 +219,62 @@ export default function AdminQuizAttemptsPage() {
         <StatsCard label="Failed Attempts" value={statsLoading ? '—' : stats.failed} />
       </div>
       <div className="flex flex-wrap items-end gap-4">
-        <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Quiz</label>
-          <select
-            className="glass-input mt-1 text-sm"
-            value={quizId}
-            onChange={(e) => {
-              setQuizId(e.target.value);
+        <div className="space-y-2">
+          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Quiz</Label>
+          <Select
+            value={quizId || ALL_QUIZZES}
+            onValueChange={(v) => {
+              const s = v ?? '';
+              setQuizId(s === ALL_QUIZZES ? '' : s);
               setPage(1);
             }}
           >
-            <option value="">All</option>
-            {quizzes.map((q) => (
-              <option key={q.id} value={q.id}>
-                {q.title}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="mt-1 w-[220px]">
+              <SelectValue placeholder="All quizzes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_QUIZZES}>All</SelectItem>
+              {quizzes.map((q) => (
+                <SelectItem key={q.id} value={String(q.id)}>
+                  {q.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</label>
-          <select
-            className="glass-input mt-1 text-sm"
-            value={passed}
-            onChange={(e) => {
-              setPassed(e.target.value);
+        <div className="space-y-2">
+          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</Label>
+          <Select
+            value={passedSelectValue}
+            onValueChange={(v) => {
+              const s = v ?? ALL_STATUS;
+              if (s === ALL_STATUS) setPassed('');
+              else if (s === 'passed') setPassed('passed');
+              else if (s === 'failed') setPassed('failed');
               setPage(1);
             }}
           >
-            <option value="">All</option>
-            <option value="passed">Passed</option>
-            <option value="failed">Failed</option>
-          </select>
+            <SelectTrigger className="mt-1 w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_STATUS}>All</SelectItem>
+              <SelectItem value="passed">Passed</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() => {
             setQuizId('');
             setPassed('');
             setPage(1);
           }}
-          className="btn-secondary px-4 py-2 text-sm font-medium shadow-sm"
         >
           Reset Filters
-        </button>
+        </Button>
       </div>
       <DataTable columns={columns} data={rows} loading={loading} emptyMessage="No attempts found." />
       <Pagination

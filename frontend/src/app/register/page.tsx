@@ -1,6 +1,18 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { RegisterPayload, useAuth } from '@/lib/auth';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
@@ -58,116 +70,105 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="relative flex min-h-[70vh] items-center justify-center overflow-hidden surface-bg">
-      <div className="gradient-orb absolute -left-48 top-20 h-96 w-96 bg-blue-400" />
-      <div className="gradient-orb absolute -right-48 bottom-20 h-96 w-96 bg-purple-400" />
-      <div className="relative mx-auto w-full max-w-lg flex-col px-4 py-12">
-        <div className="rounded-3xl border border-white/20 bg-white/70 p-8 shadow-2xl shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-white/5 dark:shadow-black/20">
-          <p className="text-center text-xl font-bold text-blue-600 dark:text-blue-400">Learnova</p>
-          <h1 className="mt-4 text-center text-2xl font-bold text-gray-900 dark:text-white">Create your account</h1>
-          <p className="mt-1 text-center text-sm text-gray-600 dark:text-gray-400">Join as a learner or instructor</p>
-          <form onSubmit={onSubmit} className="mt-8 space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  First name
-                </label>
-                <input
-                  id="first_name"
-                  required
-                  value={form.first_name}
-                  onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))}
-                  className="glass-input mt-1 w-full"
-                />
-              </div>
-              <div>
-                <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Last name
-                </label>
-                <input
-                  id="last_name"
-                  required
-                  value={form.last_name}
-                  onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))}
-                  className="glass-input mt-1 w-full"
-                />
-              </div>
-            </div>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                autoComplete="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                className="glass-input mt-1 w-full"
-              />
-            </div>
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Role
-              </label>
-              <select
-                id="role"
-                value={form.role}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    role: e.target.value as RegisterPayload['role'],
-                  }))
-                }
-                className="glass-input mt-1 w-full"
-              >
-                <option value="learner">Learner</option>
-                <option value="instructor">Instructor</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                minLength={8}
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                className="glass-input mt-1 w-full"
-              />
-            </div>
-            <div>
-              <label htmlFor="password2" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Confirm password
-              </label>
-              <input
-                id="password2"
-                type="password"
-                required
-                value={form.password2}
-                onChange={(e) => setForm((f) => ({ ...f, password2: e.target.value }))}
-                className="glass-input mt-1 w-full"
-              />
-            </div>
-            {error && <p className="text-sm text-rose-500 dark:text-rose-400">{error}</p>}
-            <button type="submit" disabled={pending} className="btn-primary w-full">
-              {pending ? 'Creating account…' : 'Create account'}
-            </button>
-          </form>
-          <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-            Already have an account?{' '}
-            <Link
-              href="/login"
-              className="font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-            >
-              Login
-            </Link>
-          </p>
+    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
+      <div className="w-full max-w-lg">
+        <div className="mb-8 flex flex-col items-center gap-2">
+          <Image src="/logo/logo.png" alt="Learnova" width={48} height={48} className="h-12 w-12 object-contain" priority />
+          <h1 className="text-2xl font-bold">Create your account</h1>
+          <p className="text-sm text-muted-foreground">Join as a learner or instructor</p>
         </div>
+        <Card>
+          <form onSubmit={onSubmit}>
+            <CardContent className="space-y-4 pt-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="first_name">First name</Label>
+                  <Input
+                    id="first_name"
+                    required
+                    placeholder="John"
+                    value={form.first_name}
+                    onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="last_name">Last name</Label>
+                  <Input
+                    id="last_name"
+                    required
+                    placeholder="Doe"
+                    value={form.last_name}
+                    onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Select
+                  value={form.role}
+                  onValueChange={(v) => setForm((f) => ({ ...f, role: v as RegisterPayload['role'] }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="learner">Learner</SelectItem>
+                    <SelectItem value="instructor">Instructor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    required
+                    minLength={8}
+                    placeholder="Min 8 characters"
+                    value={form.password}
+                    onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password2">Confirm password</Label>
+                  <Input
+                    id="password2"
+                    type="password"
+                    required
+                    placeholder="Repeat password"
+                    value={form.password2}
+                    onChange={(e) => setForm((f) => ({ ...f, password2: e.target.value }))}
+                  />
+                </div>
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+            </CardContent>
+            <CardFooter className="flex flex-col gap-4">
+              <Button type="submit" disabled={pending} className="w-full">
+                {pending ? 'Creating account…' : 'Create account'}
+              </Button>
+              <p className="text-center text-sm text-muted-foreground">
+                Already have an account?{' '}
+                <Link href="/login" className="font-medium text-primary hover:underline">
+                  Login
+                </Link>
+              </p>
+            </CardFooter>
+          </form>
+        </Card>
       </div>
     </div>
   );

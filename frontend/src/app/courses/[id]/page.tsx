@@ -2,6 +2,11 @@
 
 import LessonList from '@/components/LessonList';
 import ProgressBar from '@/components/ProgressBar';
+import DashboardHeader from '@/components/DashboardHeader';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   CourseDetail,
   CourseReview,
@@ -12,6 +17,13 @@ import {
   unwrapList,
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import {
+  ArrowLeft,
+  BookOpen,
+  Edit,
+  Play,
+  Star,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -54,38 +66,24 @@ export default function CourseDetailPage() {
     try {
       const { data } = await api.get<CourseDetail>(`/api/courses/${id}/`);
       setCourse(data);
-
       try {
         const { data: qd } = await api.get<unknown>(`/api/quizzes/course/${id}/`);
         setQuizzes(unwrapList<QuizListItem>(qd));
-      } catch {
-        setQuizzes([]);
-      }
-
+      } catch { setQuizzes([]); }
       if (user) {
         try {
           const { data: mine } = await api.get<unknown>('/api/enrollments/my/');
           const rows = unwrapList<EnrollmentRow>(mine);
-          const cid = Number(id);
-          const match = rows.find((r) => r.course_id === cid);
-          setEnrollment(match ?? null);
-        } catch {
-          setEnrollment(null);
-        }
-      } else {
-        setEnrollment(null);
-      }
+          setEnrollment(rows.find((r) => r.course_id === Number(id)) ?? null);
+        } catch { setEnrollment(null); }
+      } else { setEnrollment(null); }
     } catch {
       setError('Course not found or unavailable.');
       setCourse(null);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [id, user]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   const completedMap = useMemo(() => {
     const m = new Map<number, boolean>();
@@ -102,9 +100,7 @@ export default function CourseDetailPage() {
     const lessons = course ? flattenLessons(course.modules) : [];
     const total = lessons.length;
     let done = 0;
-    lessons.forEach((l) => {
-      if (completedMap.get(l.id)) done += 1;
-    });
+    lessons.forEach((l) => { if (completedMap.get(l.id)) done += 1; });
     return { total, done, remaining: total - done };
   }, [course, completedMap]);
 
@@ -112,225 +108,176 @@ export default function CourseDetailPage() {
     if (!course) return '';
     if (course.instructor_name) return course.instructor_name;
     if (course.instructor) {
-      const fn = [course.instructor.first_name, course.instructor.last_name]
-        .filter(Boolean)
-        .join(' ');
+      const fn = [course.instructor.first_name, course.instructor.last_name].filter(Boolean).join(' ');
       return fn || course.instructor.email || 'Instructor';
     }
     return 'Instructor';
   }, [course]);
 
   async function enroll() {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
+    if (!user) { router.push('/login'); return; }
     setActionLoading(true);
-    try {
-      await api.post(`/api/courses/${id}/enroll/`);
-      await load();
-    } catch {
-      setError('Could not enroll. Try again.');
-    } finally {
-      setActionLoading(false);
-    }
+    try { await api.post(`/api/courses/${id}/enroll/`); await load(); }
+    catch { setError('Could not enroll. Try again.'); }
+    finally { setActionLoading(false); }
   }
 
   if (loading) {
     return (
-      <div className="surface-bg flex min-h-[50vh] items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-500 border-t-transparent dark:border-blue-400" />
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
   }
 
   if (error || !course) {
     return (
-      <div className="surface-bg mx-auto max-w-7xl px-4 py-16 text-center">
-        <p className="text-rose-500 dark:text-rose-400">{error || 'Not found'}</p>
-        <Link
-          href="/courses"
-          className="mt-4 inline-block text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-        >
-          Back to courses
-        </Link>
+      <div className="px-4 py-16 text-center">
+        <p className="text-destructive">{error || 'Not found'}</p>
+        <Button variant="link" asChild className="mt-4">
+          <Link href="/courses"><ArrowLeft className="mr-2 h-4 w-4" />Back to courses</Link>
+        </Button>
       </div>
     );
   }
 
   const thumb = mediaUrl(course.thumbnail);
   const enrollmentStatus = course.enrollment_status;
-  const enrolled =
-    !!enrollment || (!!enrollmentStatus && enrollmentStatus !== 'not_enrolled' && enrollmentStatus !== 'owner');
+  const enrolled = !!enrollment || (!!enrollmentStatus && enrollmentStatus !== 'not_enrolled' && enrollmentStatus !== 'owner');
   const isOwner = enrollmentStatus === 'owner';
-  const progressPct =
-    enrollment?.progress_percent ??
-    (stats.total ? Math.round((stats.done / stats.total) * 100) : 0);
-
-  const onSelectLesson = (lesson: LessonItem) => {
-    router.push(`/courses/${id}/learn?lesson=${lesson.id}`);
-  };
-
+  const progressPct = enrollment?.progress_percent ?? (stats.total ? Math.round((stats.done / stats.total) * 100) : 0);
+  const onSelectLesson = (lesson: LessonItem) => { router.push(`/courses/${id}/learn?lesson=${lesson.id}`); };
   const modules = course.modules || [];
 
   return (
-    <div className="min-h-screen surface-bg">
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="glass-card overflow-hidden shadow-lg shadow-black/5 dark:shadow-black/20">
-          <div className="relative aspect-[21/9] min-h-[200px] bg-gray-100 dark:bg-gray-800 md:aspect-[3/1]">
-            {thumb && !thumbError ? (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={thumb}
-                  alt=""
-                  className="absolute inset-0 h-full w-full object-cover"
-                  onError={() => setThumbError(true)}
-                />
-                <div
-                  className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-transparent"
-                  aria-hidden
-                />
-              </>
+    <>
+      <DashboardHeader
+        title={course.title}
+        subtitle={instructorName}
+        actions={
+          <div className="flex items-center gap-2">
+            {isOwner ? (
+              <Button size="sm" asChild><Link href={`/dashboard/instructor/courses/${id}/edit`}><Edit className="mr-1.5 h-4 w-4" />Edit</Link></Button>
+            ) : !enrolled ? (
+              <Button size="sm" onClick={enroll} disabled={actionLoading}>
+                {actionLoading ? 'Enrolling…' : 'Enroll Now'}
+              </Button>
             ) : (
-              <div className="flex h-full items-center justify-center bg-gradient-to-br from-blue-100 via-white to-blue-50 text-blue-300 dark:from-gray-800 dark:via-gray-900 dark:to-slate-900 dark:text-blue-400/50">
-                <span className="text-lg font-medium">No thumbnail</span>
-              </div>
+              <Button size="sm" asChild><Link href={`/courses/${id}/learn`}><Play className="mr-1.5 h-4 w-4" />Continue</Link></Button>
             )}
           </div>
-          <div className="p-6 sm:p-10">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-medium text-blue-600 dark:text-blue-400">{instructorName}</p>
-              {course.category?.name || course.category_name ? (
-                <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-700 dark:border-blue-400/20 dark:bg-blue-400/10 dark:text-blue-300">
-                  {course.category?.name || course.category_name}
-                </span>
-              ) : null}
-              {course.level ? (
-                <span className="rounded-full border border-white/20 bg-white/50 px-2 py-0.5 text-xs font-medium capitalize text-gray-700 dark:border-white/10 dark:bg-white/10 dark:text-gray-300">
-                  {course.level}
-                </span>
-              ) : null}
+        }
+      />
+
+      <div className="flex-1 overflow-auto px-4 py-8 lg:px-8">
+        <div className="grid gap-8 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              {(course.category?.name || course.category_name) && (
+                <Badge variant="outline">{course.category?.name || course.category_name}</Badge>
+              )}
+              {course.level && <Badge variant="outline" className="capitalize">{course.level}</Badge>}
             </div>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{course.title}</h1>
-            <p className="mt-4 max-w-3xl whitespace-pre-wrap text-gray-600 dark:text-gray-400">
+            <p className="max-w-2xl text-muted-foreground leading-relaxed">
               {course.description || course.short_description}
             </p>
-
-            {enrolled && (
-              <div className="mt-8 max-w-xl">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Your progress</p>
-                <ProgressBar value={progressPct} className="mt-2" />
+          </div>
+          <div>
+            <Card className="overflow-hidden">
+              <div className="aspect-video bg-muted">
+                {thumb && !thumbError ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={thumb} alt="" className="h-full w-full object-cover" onError={() => setThumbError(true)} />
+                ) : (
+                  <div className="flex h-full items-center justify-center"><BookOpen className="h-10 w-10 text-muted-foreground/40" /></div>
+                )}
               </div>
-            )}
-
-            <div className="mt-8 flex flex-wrap gap-4">
-              {isOwner ? (
-                <Link href={`/dashboard/instructor/courses/${id}/edit`} className="btn-primary">
-                  Edit course
-                </Link>
-              ) : !enrolled ? (
-                <button type="button" onClick={enroll} disabled={actionLoading} className="btn-primary disabled:opacity-60">
-                  {actionLoading ? 'Enrolling…' : 'Enroll'}
-                </button>
-              ) : (
-                <Link href={`/courses/${id}/learn`} className="btn-primary">
-                  Continue learning
-                </Link>
-              )}
-              <Link href="/courses" className="btn-secondary">
-                All courses
-              </Link>
-            </div>
-
-            <div className="mt-10 grid gap-4 sm:grid-cols-3">
-              {[
-                { label: 'Lessons', value: stats.total },
-                { label: 'Completed', value: stats.done },
-                { label: 'Remaining', value: stats.remaining },
-              ].map((s) => (
-                <div key={s.label} className="glass-card rounded-xl px-4 py-4 text-center">
-                  <p className="text-3xl font-bold tabular-nums text-gray-900 dark:text-white">{s.value}</p>
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500">
-                    {s.label}
-                  </p>
+              <CardContent className="p-4">
+                {enrolled && <ProgressBar value={progressPct} className="mb-4" />}
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <p className="text-2xl font-bold tabular-nums">{stats.total}</p>
+                    <p className="text-xs text-muted-foreground">Lessons</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold tabular-nums">{stats.done}</p>
+                    <p className="text-xs text-muted-foreground">Done</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold tabular-nums">{stats.remaining}</p>
+                    <p className="text-xs text-muted-foreground">Left</p>
+                  </div>
                 </div>
-              ))}
-            </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
         <div className="mt-10 grid gap-10 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Curriculum</h2>
-            <div className="glass-card mt-4 p-4">
-              {modules.length > 0 ? (
-                <LessonList
-                  modules={modules}
-                  onSelect={onSelectLesson}
-                  completedMap={completedMap}
-                />
-              ) : (
-                <p className="text-sm text-gray-500 dark:text-gray-500">No modules yet.</p>
-              )}
+          <div className="lg:col-span-2 space-y-8">
+            <div>
+              <h2 className="text-xl font-semibold">Curriculum</h2>
+              <div className="mt-4">
+                {modules.length > 0 ? (
+                  <LessonList modules={modules} onSelect={onSelectLesson} completedMap={completedMap} />
+                ) : (
+                  <Card className="p-8 text-center"><p className="text-muted-foreground">No modules yet.</p></Card>
+                )}
+              </div>
             </div>
+
+            {(course.reviews ?? []).length > 0 && (
+              <div>
+                <h2 className="text-xl font-semibold">Reviews</h2>
+                <div className="mt-4 space-y-4">
+                  {(course.reviews as CourseReview[]).map((r) => (
+                    <Card key={r.id} className="p-5">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9">
+                          <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
+                            {r.user_name?.charAt(0)?.toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-semibold">{r.user_name}</p>
+                          <div className="flex gap-0.5">
+                            {Array.from({ length: 5 }, (_, i) => (
+                              <Star key={i} className={`h-3.5 w-3.5 ${i < r.rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/30'}`} />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm text-muted-foreground">{r.review_text}</p>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Quizzes</h2>
-            <ul className="mt-4 space-y-3">
+            <h2 className="text-xl font-semibold">Quizzes</h2>
+            <div className="mt-4 space-y-3">
               {quizzes.map((q) => (
-                <li key={q.id} className="glass-card flex items-center justify-between p-4">
+                <Card key={q.id} className="flex items-center justify-between p-4">
                   <div>
-                    <p className="font-medium text-gray-900 dark:text-white">{q.title}</p>
-                    {q.question_count != null ? (
-                      <p className="text-xs text-gray-500 dark:text-gray-500">{q.question_count} questions</p>
-                    ) : null}
+                    <p className="font-medium">{q.title}</p>
+                    {q.question_count != null && (
+                      <p className="text-xs text-muted-foreground">{q.question_count} questions</p>
+                    )}
                   </div>
-                  <Link href={`/courses/${id}/quiz/${q.id}`} className="btn-primary px-3 py-1.5 text-sm">
-                    Take quiz
-                  </Link>
-                </li>
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href={`/courses/${id}/quiz/${q.id}`}>Take quiz</Link>
+                  </Button>
+                </Card>
               ))}
               {quizzes.length === 0 && (
-                <li className="text-sm text-gray-500 dark:text-gray-500">No quizzes for this course yet.</li>
+                <Card className="p-6 text-center"><p className="text-sm text-muted-foreground">No quizzes for this course yet.</p></Card>
               )}
-            </ul>
-          </div>
-        </div>
-
-        {(course.reviews ?? []).length > 0 && (
-          <div className="mt-10">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Reviews</h2>
-            <div className="mt-4 space-y-4">
-              {(course.reviews as CourseReview[]).map((r) => (
-                <div key={r.id} className="glass-card rounded-xl p-5">
-                  <div className="flex items-center gap-3">
-                    {r.user_avatar ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={mediaUrl(r.user_avatar)} alt="" className="h-9 w-9 rounded-full object-cover" />
-                    ) : (
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500/10 text-sm font-bold text-blue-600 dark:bg-blue-400/10 dark:text-blue-400">
-                        {r.user_name?.charAt(0)?.toUpperCase()}
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{r.user_name}</p>
-                      <div className="flex gap-0.5">
-                        {Array.from({ length: 5 }, (_, i) => (
-                          <span key={i} className={i < r.rating ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}>
-                            &#9733;
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-sm text-gray-700 dark:text-gray-300">{r.review_text}</p>
-                </div>
-              ))}
             </div>
           </div>
-        )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
