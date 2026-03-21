@@ -131,6 +131,22 @@ const CHILD_TYPES: Record<string, string[]> = {
   lesson: ['quiz', 'video', 'resource'],
 };
 
+function countDescendants(node: TreeNode): number {
+  if (!node.children?.length) return 0;
+  return node.children.reduce((sum, c) => sum + 1 + countDescendants(c), 0);
+}
+
+function findNodeInTree(nodes: TreeNode[], id: number): TreeNode | null {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    if (n.children) {
+      const found = findNodeInTree(n.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 interface ContentManagerProps {
   rootId?: number;
   rootType?: string;
@@ -406,7 +422,22 @@ export default function ContentManager({ rootId, rootType }: ContentManagerProps
         open={!!deleteTarget}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
         title="Delete item"
-        description="Delete this item and all its children? This action cannot be undone."
+        description={(() => {
+          if (!deleteTarget) return 'This action cannot be undone.';
+          const node = findNodeInTree(tree, deleteTarget.id);
+          const childCount = node ? countDescendants(node) : 0;
+          const nodeName = node?.title || 'this item';
+          if (childCount > 0) {
+            return (
+              <>
+                <span className="font-semibold">&quot;{nodeName}&quot;</span> has{' '}
+                <span className="font-semibold text-destructive">{childCount} child {childCount === 1 ? 'item' : 'items'}</span>{' '}
+                that will also be permanently deleted. This action cannot be undone.
+              </>
+            );
+          }
+          return <>Permanently delete <span className="font-semibold">&quot;{nodeName}&quot;</span>? This action cannot be undone.</>;
+        })()}
         confirmLabel="Delete"
         destructive
         onConfirm={confirmDelete}

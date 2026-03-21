@@ -60,6 +60,42 @@ def _type_label(entity):
     return TYPE_LABELS.get(entity.entity_type, 'unknown')
 
 
+def _collect_descendants(entity):
+    """Recursively collect entity and all its descendant entities (BFS)."""
+    collected = []
+    queue = [entity]
+    while queue:
+        current = queue.pop(0)
+        collected.append(current)
+        child_links = ContentStructure.objects.filter(
+            parent_entity=current
+        ).select_related('child_entity')
+        for link in child_links:
+            queue.append(link.child_entity)
+    return collected
+
+
+def _cleanup_entity_assets(entity):
+    """Remove S3/storage files for an entity's video, resource, and attachments."""
+    if entity.entity_type == EntityType.VIDEO:
+        try:
+            vd = entity.video_detail
+            if vd.video_asset:
+                vd.video_asset.delete()
+        except Exception:
+            pass
+    elif entity.entity_type == EntityType.RESOURCE:
+        try:
+            rd = entity.resource_detail
+            if rd.asset:
+                rd.asset.delete()
+        except Exception:
+            pass
+    for att in entity.attachments.all():
+        if att.asset:
+            att.asset.delete()
+
+
 def _serialize_entity(entity, include_children=False, depth=0, max_depth=6):
     data = {
         'id': entity.id,
@@ -425,26 +461,11 @@ class EntityDetailView(APIView):
 
     def delete(self, request, pk):
         entity = get_object_or_404(ContentEntity, pk=pk)
-        # Clean up associated assets before deletion
-        if entity.entity_type == EntityType.VIDEO:
-            try:
-                vd = entity.video_detail
-                if vd.video_asset:
-                    vd.video_asset.delete()
-            except Exception:
-                pass
-        elif entity.entity_type == EntityType.RESOURCE:
-            try:
-                rd = entity.resource_detail
-                if rd.asset:
-                    rd.asset.delete()
-            except Exception:
-                pass
-        # Clean up attachments
-        for att in entity.attachments.all():
-            if att.asset:
-                att.asset.delete()
-        entity.delete()
+        entities_to_delete = _collect_descendants(entity)
+        for e in entities_to_delete:
+            _cleanup_entity_assets(e)
+        ids = [e.id for e in entities_to_delete]
+        ContentEntity.objects.filter(id__in=ids).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

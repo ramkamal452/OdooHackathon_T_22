@@ -3,10 +3,11 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import {
   BookOpen,
@@ -18,13 +19,27 @@ import {
   Zap,
 } from 'lucide-react';
 
+interface PlatformStats {
+  published_courses: number;
+  active_learners: number;
+  total_enrollments: number;
+  completion_rate: number;
+}
+
 export default function HomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [stats, setStats] = useState<PlatformStats | null>(null);
 
   useEffect(() => {
     if (!loading && user) router.replace('/dashboard');
   }, [user, loading, router]);
+
+  useEffect(() => {
+    api.get<PlatformStats>('/api/stats/')
+      .then(({ data }) => setStats(data))
+      .catch(() => {});
+  }, []);
 
   if (loading) {
     return (
@@ -47,7 +62,7 @@ export default function HomePage() {
             </div>
             <Badge variant="secondary" className="mb-6">
               <Zap className="mr-1.5 h-3 w-3" />
-              Trusted by 10K+ learners worldwide
+              Your eLearning Platform
             </Badge>
             <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
               Learn smarter with{' '}
@@ -106,29 +121,39 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="border-t bg-muted/30">
-        <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-          <div className="grid gap-6 sm:grid-cols-3 text-center">
-            {[
-              { icon: BookOpen, value: '500+', label: 'Courses Available' },
-              { icon: Users, value: '10K+', label: 'Active Learners' },
-              { icon: Award, value: '95%', label: 'Completion Rate' },
-            ].map((stat) => (
-              <Card key={stat.label}>
+      {stats && (stats.published_courses > 0 || stats.active_learners > 0) && (
+        <section className="border-t bg-muted/30">
+          <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
+            <div className="grid gap-6 sm:grid-cols-3 text-center">
+              <Card>
                 <CardContent className="flex flex-col items-center gap-2 py-8">
-                  <stat.icon className="h-6 w-6 text-primary" />
-                  <p className="text-3xl font-bold">{stat.value}</p>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+                  <BookOpen className="h-6 w-6 text-primary" />
+                  <p className="text-3xl font-bold">{stats.published_courses}</p>
+                  <p className="text-sm text-muted-foreground">Published Courses</p>
                 </CardContent>
               </Card>
-            ))}
+              <Card>
+                <CardContent className="flex flex-col items-center gap-2 py-8">
+                  <Users className="h-6 w-6 text-primary" />
+                  <p className="text-3xl font-bold">{stats.active_learners}</p>
+                  <p className="text-sm text-muted-foreground">Registered Learners</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="flex flex-col items-center gap-2 py-8">
+                  <Award className="h-6 w-6 text-primary" />
+                  <p className="text-3xl font-bold">{stats.total_enrollments > 0 ? `${stats.completion_rate}%` : '—'}</p>
+                  <p className="text-sm text-muted-foreground">Completion Rate</p>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <footer className="border-t bg-card py-8">
         <p className="text-center text-sm text-muted-foreground">
-          &copy; 2026 Learnova LMS. All rights reserved.
+          &copy; {new Date().getFullYear()} Learnova LMS. All rights reserved.
         </p>
       </footer>
     </div>

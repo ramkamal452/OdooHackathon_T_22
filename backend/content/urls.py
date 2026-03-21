@@ -31,6 +31,7 @@ from .views import (
     ModuleDetailView,
     ModuleListCreateView,
     ModuleQuizListCreateView,
+    PlatformStatsView,
 )
 
 urlpatterns = [
@@ -64,4 +65,5 @@ urlpatterns = [
     path('admin/courses/', AdminCourseListView.as_view(), name='admin-courses'),
     path('admin/modules/', AdminModuleListView.as_view(), name='admin-modules'),
     path('admin/lessons/', AdminLessonListView.as_view(), name='admin-lessons'),
+    path('stats/', PlatformStatsView.as_view(), name='platform-stats'),
 ]

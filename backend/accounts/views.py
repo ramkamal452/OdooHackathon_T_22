@@ -3,6 +3,7 @@ from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -21,6 +22,8 @@ User = get_user_model()
 class RegisterView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'login'
 
     def post(self, request, *args, **kwargs):
         serializer = RegisterSerializer(data=request.data, context={'request': self.request})
@@ -42,6 +45,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     permission_classes = [AllowAny]
     authentication_classes = []
     serializer_class = CustomTokenObtainPairSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'login'
 
 
 class RefreshTokenView(TokenRefreshView):

@@ -3,7 +3,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import NotFound, PermissionDenied
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -50,18 +50,19 @@ from .serializers import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _course_qs(user):
+def _course_qs(user=None):
     qs = ContentEntity.objects.filter(
         entity_type=EntityType.COURSE,
         deleted_at__isnull=True,
     ).select_related(
         'owner', 'thumbnail_asset', 'course_settings',
     )
-    role = getattr(user, 'role', None)
-    if role == 'admin':
-        return qs
-    if role == 'instructor':
-        return qs.filter(Q(owner=user) | Q(status_code=StatusCode.PUBLISHED))
+    if user and user.is_authenticated:
+        role = getattr(user, 'role', None)
+        if role == 'admin':
+            return qs
+        if role == 'instructor':
+            return qs.filter(Q(owner=user) | Q(status_code=StatusCode.PUBLISHED))
     return qs.filter(status_code=StatusCode.PUBLISHED)
 
 
@@ -154,10 +155,16 @@ class CategoryDetailView(APIView):
 # ---------------------------------------------------------------------------
 
 class CourseListCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAuthenticated()]
+        return [AllowAny()]
 
     def get(self, request):
-        qs = _annotate_counts(_course_qs(request.user))
+        user = request.user if request.user and request.user.is_authenticated else None
+        qs = _annotate_counts(_course_qs(user))
         search = request.query_params.get('search')
         category = request.query_params.get('category')
         level = request.query_params.get('level')
@@ -241,7 +248,12 @@ class CourseListCreateView(APIView):
 
 
 class CourseDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
+
+    def get_permissions(self):
+        if self.request.method in ('PUT', 'PATCH', 'DELETE'):
+            return [IsAuthenticated()]
+        return [AllowAny()]
 
     def get(self, request, pk):
         entity = get_object_or_404(
@@ -250,7 +262,8 @@ class CourseDetailView(APIView):
         )
         if not can_view_entity(request.user, entity):
             raise NotFound()
-        data = CourseDetailSerializer.from_entity(entity, user=request.user, request=request)
+        user = request.user if request.user and request.user.is_authenticated else None
+        data = CourseDetailSerializer.from_entity(entity, user=user, request=request)
         return Response(data)
 
     def put(self, request, pk):
@@ -1202,3 +1215,36 @@ def _create_quiz_under_parent(request, parent_entity, course_entity):
         'pass_percentage': pass_pct,
         'created_at': quiz_entity.created_at,
     }, status=status.HTTP_201_CREATED)
+
+
+class PlatformStatsView(APIView):
+    """Public endpoint returning real platform statistics."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from enrollment.models import CourseMembership, MembershipStatus
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        published_courses = ContentEntity.objects.filter(
+            entity_type=EntityType.COURSE,
+            status_code=StatusCode.PUBLISHED,
+            deleted_at__isnull=True,
+        ).count()
+
+        active_learners = User.objects.filter(role='learner', is_active=True).count()
+
+        total_enrollments = CourseMembership.objects.filter(
+            membership_status__in=[MembershipStatus.ACTIVE, MembershipStatus.COMPLETED],
+        ).count()
+        completed_enrollments = CourseMembership.objects.filter(
+            membership_status=MembershipStatus.COMPLETED,
+        ).count()
+        completion_rate = round((completed_enrollments / total_enrollments * 100)) if total_enrollments > 0 else 0
+
+        return Response({
+            'published_courses': published_courses,
+            'active_learners': active_learners,
+            'total_enrollments': total_enrollments,
+            'completion_rate': completion_rate,
+        })

@@ -46,6 +46,7 @@ function flushQueue(error: unknown, token: string | null) {
 }
 
 const AUTH_OPEN_PATHS = ['/api/auth/register/', '/api/auth/login/', '/api/auth/token/refresh/'];
+const PUBLIC_READ_PATHS = ['/api/courses/', '/api/courses', '/api/reviews/', '/api/stats/'];
 
 api.interceptors.request.use((config) => {
   const url = config.url || '';
@@ -96,8 +97,12 @@ api.interceptors.response.use(
 
     const refresh = localStorage.getItem(REFRESH_KEY);
     if (!refresh) {
-      clearStoredTokens();
-      if (typeof window !== 'undefined') window.location.href = '/login';
+      const isPublicRead = original.method?.toLowerCase() === 'get' &&
+        PUBLIC_READ_PATHS.some((p) => url.startsWith(p));
+      if (!isPublicRead) {
+        clearStoredTokens();
+        if (typeof window !== 'undefined') window.location.href = '/login';
+      }
       return Promise.reject(error);
     }
 
@@ -113,12 +118,15 @@ api.interceptors.response.use(
     original._retry = true;
     isRefreshing = true;
     try {
-      const { data } = await axios.post<{ access: string }>(
+      const { data } = await axios.post<{ access: string; refresh?: string }>(
         `${API_BASE}/api/auth/token/refresh/`,
         { refresh },
         { headers: { 'Content-Type': 'application/json' } }
       );
       localStorage.setItem(ACCESS_KEY, data.access);
+      if (data.refresh) {
+        localStorage.setItem(REFRESH_KEY, data.refresh);
+      }
       flushQueue(null, data.access);
       original.headers.Authorization = `Bearer ${data.access}`;
       return api(original);

@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from '@/lib/auth';
 import { usePathname } from 'next/navigation';
 
 const AUTH_PAGES = ['/login', '/register'];
+const PUBLIC_PAGES = ['/courses'];
 
 function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -19,12 +20,16 @@ function Shell({ children }: { children: React.ReactNode }) {
   const isDashboard = pathname?.startsWith('/dashboard') ?? false;
   const isAuthPage = AUTH_PAGES.some((p) => pathname === p);
   const isHome = pathname === '/';
+  const isPublicPage = PUBLIC_PAGES.some(
+    (p) => pathname === p || pathname?.startsWith(p + '/')
+  );
 
   if (isAdmin || isDashboard) {
     return <>{children}</>;
   }
 
-  if (isAuthPage || (isHome && !user) || loading) {
+  const showNavbar = isAuthPage || isHome || loading || (isPublicPage && !user);
+  if (showNavbar) {
     return (
       <>
         <Navbar />
