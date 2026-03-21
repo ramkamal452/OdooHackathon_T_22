@@ -82,6 +82,10 @@ class QuizListSerializer(serializers.ModelSerializer):
             'module_id',
             'pass_percentage',
             'is_published',
+            'reward_first_try',
+            'reward_second_try',
+            'reward_third_try',
+            'reward_fourth_plus',
             'created_at',
         ]
 
@@ -105,6 +109,10 @@ class QuizDetailSerializer(serializers.ModelSerializer):
             'description',
             'pass_percentage',
             'is_published',
+            'reward_first_try',
+            'reward_second_try',
+            'reward_third_try',
+            'reward_fourth_plus',
             'created_at',
             'questions',
         ]
@@ -116,7 +124,11 @@ class QuizWriteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Quiz
-        fields = ['title', 'description', 'module', 'pass_percentage', 'is_published', 'questions']
+        fields = [
+            'title', 'description', 'module', 'pass_percentage', 'is_published', 
+            'reward_first_try', 'reward_second_try', 'reward_third_try', 'reward_fourth_plus', 
+            'questions'
+        ]
 
     def validate(self, attrs):
         module = attrs.get('module')
@@ -206,7 +218,7 @@ class QuizAttemptResultSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuizAttempt
-        fields = ['score', 'total_marks', 'percentage', 'is_passed', 'submitted_at', 'answers']
+        fields = ['score', 'total_marks', 'percentage', 'is_passed', 'attempt_number', 'points_earned', 'submitted_at', 'answers']
 
 
 class AdminQuizListSerializer(serializers.ModelSerializer):
@@ -269,6 +281,8 @@ class AdminQuizAttemptListSerializer(serializers.ModelSerializer):
             'total_marks',
             'percentage',
             'is_passed',
+            'attempt_number',
+            'points_earned',
             'started_at',
             'submitted_at',
         ]

@@ -63,6 +63,8 @@ class Course(models.Model):
     )
     title = models.CharField(max_length=255)
     slug = models.SlugField(unique=True, blank=True)
+    tags = models.CharField(max_length=255, blank=True)
+    website = models.URLField(blank=True)
     short_description = models.CharField(max_length=500, blank=True)
     description = models.TextField(blank=True)
     thumbnail = models.ImageField(upload_to='courses/thumbnails/', blank=True, null=True)
@@ -111,15 +113,15 @@ class Module(models.Model):
 class Lesson(models.Model):
     CONTENT_TYPE_CHOICES = [
         ('video', 'Video'),
-        ('text', 'Text'),
-        ('pdf', 'PDF'),
-        ('link', 'Link'),
+        ('document', 'Document'),
+        ('image', 'Image'),
     ]
 
     module = models.ForeignKey(Module, on_delete=models.CASCADE, related_name='lessons')
     title = models.CharField(max_length=255)
     content_type = models.CharField(max_length=20, choices=CONTENT_TYPE_CHOICES)
     content_body = models.TextField(blank=True)
+    allow_download = models.BooleanField(default=False)
     video_url = models.URLField(blank=True)
     resource_url = models.URLField(blank=True)
     duration_minutes = models.PositiveIntegerField(null=True, blank=True)
@@ -137,9 +139,9 @@ class Lesson(models.Model):
 
 class Enrollment(models.Model):
     STATUS_CHOICES = [
-        ('active', 'Active'),
+        ('yet_to_start', 'Yet to Start'),
+        ('in_progress', 'In Progress'),
         ('completed', 'Completed'),
-        ('dropped', 'Dropped'),
     ]
 
     learner = models.ForeignKey(
@@ -149,8 +151,9 @@ class Enrollment(models.Model):
     )
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='enrollments')
     enrolled_at = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='yet_to_start')
     progress_percent = models.PositiveIntegerField(default=0)
+    time_spent_seconds = models.PositiveIntegerField(default=0)
     completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -176,6 +179,9 @@ class Enrollment(models.Model):
             self.status = 'completed'
             self.completed_at = timezone.now()
             update_fields.extend(['status', 'completed_at'])
+        elif pct > 0 and self.status == 'yet_to_start':
+            self.status = 'in_progress'
+            if 'status' not in update_fields: update_fields.append('status')
         self.save(update_fields=update_fields)
 
 
@@ -235,3 +241,28 @@ def can_access_course_quizzes(user, course):
     if getattr(user, 'role', None) == 'learner' and learner_enrolled(user, course):
         return True
     return False
+
+class LessonAttachment(models.Model):
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='attachments')
+    title = models.CharField(max_length=255)
+    file = models.FileField(upload_to='lessons/attachments/', blank=True, null=True)
+    url = models.URLField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.title
+
+
+class CourseReview(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='reviews')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reviews')
+    rating = models.PositiveSmallIntegerField(default=5)
+    review_text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = [['course', 'user']]
+
+    def __str__(self):
+        return f'{self.user} - {self.course} ({self.rating} stars)'

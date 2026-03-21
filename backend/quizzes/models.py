@@ -15,6 +15,10 @@ class Quiz(models.Model):
     description = models.TextField(blank=True)
     pass_percentage = models.PositiveIntegerField(default=50)
     is_published = models.BooleanField(default=False)
+    reward_first_try = models.PositiveIntegerField(default=10)
+    reward_second_try = models.PositiveIntegerField(default=8)
+    reward_third_try = models.PositiveIntegerField(default=5)
+    reward_fourth_plus = models.PositiveIntegerField(default=2)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -67,6 +71,8 @@ class QuizAttempt(models.Model):
     total_marks = models.PositiveIntegerField(default=0)
     percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     is_passed = models.BooleanField(default=False)
+    attempt_number = models.PositiveIntegerField(default=1)
+    points_earned = models.PositiveIntegerField(default=0)
     started_at = models.DateTimeField(auto_now_add=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
 

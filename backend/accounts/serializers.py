@@ -22,10 +22,12 @@ class UserSerializer(serializers.ModelSerializer):
             'role',
             'bio',
             'avatar',
+            'points',
+            'badge',
             'is_staff',
             'date_joined',
         ]
-        read_only_fields = ['id', 'email', 'role', 'is_staff', 'date_joined']
+        read_only_fields = ['id', 'email', 'role', 'points', 'badge', 'is_staff', 'date_joined']
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -42,8 +44,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         return attrs
 
     def validate_role(self, value):
+        request = self.context.get('request')
         if value == 'admin':
-            raise serializers.ValidationError('Cannot register as admin.')
+            if not request or not request.user.is_authenticated or request.user.role != 'admin':
+                raise serializers.ValidationError('Only admins can create other admin accounts.')
         return value
 
     def create(self, validated_data):
@@ -69,6 +73,8 @@ class AdminUserSerializer(serializers.ModelSerializer):
             'first_name',
             'last_name',
             'role',
+            'points',
+            'badge',
             'is_active',
             'is_staff',
             'date_joined',

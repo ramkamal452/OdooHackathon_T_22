@@ -154,6 +154,10 @@ class QuizAttemptSubmitView(APIView):
         score = 0
         now = timezone.now()
         with transaction.atomic():
+            attempt_count = QuizAttempt.objects.filter(quiz=quiz, learner=request.user).count()
+            attempt_number = attempt_count + 1
+            already_passed = QuizAttempt.objects.filter(quiz=quiz, learner=request.user, is_passed=True).exists()
+
             attempt = QuizAttempt.objects.create(
                 quiz=quiz,
                 learner=request.user,
@@ -161,6 +165,8 @@ class QuizAttemptSubmitView(APIView):
                 total_marks=total_marks,
                 percentage=Decimal('0'),
                 is_passed=False,
+                attempt_number=attempt_number,
+                points_earned=0,
             )
             for item in answers_in:
                 qid = item['question_id']
@@ -184,7 +190,19 @@ class QuizAttemptSubmitView(APIView):
             attempt.percentage = pct
             attempt.is_passed = is_passed
             attempt.submitted_at = now
-            attempt.save(update_fields=['score', 'percentage', 'is_passed', 'submitted_at'])
+            
+            points = 0
+            if is_passed and not already_passed:
+                if attempt_number == 1: points = quiz.reward_first_try
+                elif attempt_number == 2: points = quiz.reward_second_try
+                elif attempt_number == 3: points = quiz.reward_third_try
+                else: points = quiz.reward_fourth_plus
+                
+                request.user.points += points
+                request.user.save(update_fields=['points'])
+            
+            attempt.points_earned = points
+            attempt.save(update_fields=['score', 'percentage', 'is_passed', 'attempt_number', 'points_earned', 'submitted_at'])
 
         attempt = QuizAttempt.objects.prefetch_related(
             'answers__question',

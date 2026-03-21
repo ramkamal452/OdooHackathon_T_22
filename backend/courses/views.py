@@ -17,6 +17,7 @@ from .models import (
     Lesson,
     LessonProgress,
     Module,
+    CourseReview,
     can_access_lesson,
     can_manage_course,
     can_view_course,
@@ -569,3 +570,21 @@ class AdminLessonProgressListView(generics.ListAPIView):
         if is_completed is not None:
             qs = qs.filter(is_completed=is_completed)
         return qs
+
+class CourseReviewCreateView(APIView):
+    permission_classes = [IsAuthenticated, IsLearner]
+
+    def post(self, request, pk):
+        course = get_object_or_404(Course, pk=pk)
+        if not learner_enrolled(request.user, course):
+            return Response({'detail': 'You must be enrolled to review.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        rating = request.data.get('rating', 5)
+        review_text = request.data.get('review_text', '')
+        
+        review, created = CourseReview.objects.update_or_create(
+            course=course,
+            user=request.user,
+            defaults={'rating': rating, 'review_text': review_text}
+        )
+        return Response({'detail': 'Review saved.', 'id': review.id}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)

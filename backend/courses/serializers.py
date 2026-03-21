@@ -3,7 +3,31 @@ from rest_framework import serializers
 
 from accounts.serializers import BriefUserSerializer
 
-from .models import Category, Course, Enrollment, Lesson, LessonProgress, Module
+from .models import Category, Course, Enrollment, Lesson, LessonProgress, Module, LessonAttachment, CourseReview
+
+class LessonAttachmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LessonAttachment
+        fields = ['id', 'title', 'file', 'url', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+class CourseReviewSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+    user_avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CourseReview
+        fields = ['id', 'course', 'user', 'user_name', 'user_avatar', 'rating', 'review_text', 'created_at']
+        read_only_fields = ['id', 'course', 'user', 'user_name', 'user_avatar', 'created_at']
+
+    def get_user_name(self, obj):
+        return obj.user.get_full_name() or obj.user.email
+
+    def get_user_avatar(self, obj):
+        request = self.context.get('request')
+        if obj.user.avatar and request:
+            return request.build_absolute_uri(obj.user.avatar.url)
+        return None
 
 
 class BriefCourseSerializer(serializers.ModelSerializer):
@@ -27,6 +51,8 @@ class CategoryDetailSerializer(CategorySerializer):
 
 
 class LessonSerializer(serializers.ModelSerializer):
+    attachments = LessonAttachmentSerializer(many=True, read_only=True)
+
     class Meta:
         model = Lesson
         fields = [
@@ -35,6 +61,7 @@ class LessonSerializer(serializers.ModelSerializer):
             'title',
             'content_type',
             'content_body',
+            'allow_download',
             'video_url',
             'resource_url',
             'duration_minutes',
@@ -42,6 +69,7 @@ class LessonSerializer(serializers.ModelSerializer):
             'is_preview',
             'created_at',
             'updated_at',
+            'attachments',
         ]
         read_only_fields = ['id', 'module', 'created_at', 'updated_at']
 
@@ -74,6 +102,8 @@ class CourseListSerializer(serializers.ModelSerializer):
             'id',
             'title',
             'slug',
+            'tags',
+            'website',
             'short_description',
             'thumbnail',
             'instructor_name',
@@ -110,6 +140,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True, allow_null=True)
     modules = ModuleDetailSerializer(many=True, read_only=True)
     enrollment_status = serializers.SerializerMethodField()
+    reviews = CourseReviewSerializer(many=True, read_only=True)
 
     class Meta:
         model = Course
@@ -117,6 +148,8 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'id',
             'title',
             'slug',
+            'tags',
+            'website',
             'short_description',
             'description',
             'thumbnail',
@@ -132,6 +165,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'updated_at',
             'modules',
             'enrollment_status',
+            'reviews',
         ]
         read_only_fields = fields
 
@@ -157,6 +191,8 @@ class CourseWriteSerializer(serializers.ModelSerializer):
             'id',
             'slug',
             'title',
+            'tags',
+            'website',
             'short_description',
             'description',
             'thumbnail',
@@ -182,6 +218,7 @@ class EnrollmentSerializer(serializers.ModelSerializer):
             'learner',
             'status',
             'progress_percent',
+            'time_spent_seconds',
             'enrolled_at',
             'completed_at',
         ]
@@ -202,6 +239,7 @@ class MyEnrollmentSerializer(serializers.ModelSerializer):
             'course_slug',
             'status',
             'progress_percent',
+            'time_spent_seconds',
             'enrolled_at',
             'completed_at',
         ]
@@ -227,6 +265,8 @@ class AdminCourseListSerializer(serializers.ModelSerializer):
             'id',
             'title',
             'slug',
+            'tags',
+            'website',
             'instructor_name',
             'category_name',
             'level',
@@ -286,6 +326,7 @@ class AdminEnrollmentListSerializer(serializers.ModelSerializer):
             'course_title',
             'status',
             'progress_percent',
+            'time_spent_seconds',
             'enrolled_at',
             'completed_at',
         ]

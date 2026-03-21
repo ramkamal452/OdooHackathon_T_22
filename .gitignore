@@ -40,3 +40,6 @@ media/
 
 #Docker
 entrypoint.sh
+
+#Documentation
+docs/

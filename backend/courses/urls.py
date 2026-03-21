@@ -22,6 +22,7 @@ from .views import (
     ModuleDetailView,
     ModuleListCreateView,
     MyEnrollmentsView,
+    CourseReviewCreateView,
 )
 
 urlpatterns = [
@@ -31,6 +32,7 @@ urlpatterns = [
     path('courses/<int:pk>/', CourseDetailView.as_view(), name='course-detail'),
     path('courses/<int:pk>/publish/', CoursePublishView.as_view(), name='course-publish'),
     path('courses/<int:pk>/enroll/', CourseEnrollView.as_view(), name='course-enroll'),
+    path('courses/<int:pk>/reviews/', CourseReviewCreateView.as_view(), name='course-reviews'),
     path('courses/<int:pk>/enrollments/', CourseEnrollmentListView.as_view(), name='course-enrollments'),
     path('courses/<int:course_id>/modules/', ModuleListCreateView.as_view(), name='module-list-create'),
     path('modules/<int:pk>/', ModuleDetailView.as_view(), name='module-detail'),

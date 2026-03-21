@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'accounts',
     'courses',
     'quizzes',
+    'storages',
 ]
 
 MIDDLEWARE = [
@@ -162,3 +163,14 @@ SIMPLE_JWT = {
 
 CORS_ALLOWED_ORIGINS = ['http://localhost:3000']
 CORS_ALLOW_CREDENTIALS = True
+
+# AWS S3 Settings
+AWS_ACCESS_KEY_ID = os.environ.get('Access_key_ID')
+AWS_SECRET_ACCESS_KEY = os.environ.get('Secret_access_key')
+AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME', 'learnova-bucket')
+AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL = None
+
+if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'

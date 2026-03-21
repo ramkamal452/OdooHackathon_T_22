@@ -46,6 +46,17 @@ class User(AbstractUser):
     )
     bio = models.TextField(blank=True)
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
+    points = models.PositiveIntegerField(default=0)
+
+    @property
+    def badge(self):
+        if self.points >= 120: return 'Master'
+        if self.points >= 100: return 'Expert'
+        if self.points >= 80: return 'Specialist'
+        if self.points >= 60: return 'Achiever'
+        if self.points >= 40: return 'Explorer'
+        if self.points >= 20: return 'Newbie'
+        return 'None'
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name', 'role']

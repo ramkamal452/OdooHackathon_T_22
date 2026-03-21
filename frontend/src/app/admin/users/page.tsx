@@ -97,7 +97,10 @@ export default function AdminUsersPage() {
     {
       key: 'id',
       header: 'ID',
-      render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">#LRN-{r.id}</span>,
+      render: (r) => {
+        const prefix = r.role === 'admin' ? 'ADM' : r.role === 'instructor' ? 'INS' : 'LRN';
+        return <span className="font-mono text-gray-500 dark:text-gray-400">#{prefix}-{r.id}</span>;
+      },
     },
     {
       key: 'name',
@@ -146,7 +149,7 @@ export default function AdminUsersPage() {
           </span>
         ),
     },
-    { key: 'date_joined', header: 'Created At', render: (r) => formatDate(r.date_joined) },
+
   ];
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -183,6 +186,7 @@ export default function AdminUsersPage() {
             <select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} className="glass-input mt-1 w-full">
               <option value="learner">Learner</option>
               <option value="instructor">Instructor</option>
+              <option value="admin">Admin</option>
             </select>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
