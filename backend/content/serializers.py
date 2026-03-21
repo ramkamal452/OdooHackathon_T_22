@@ -52,10 +52,7 @@ def _thumbnail_url(entity, request=None):
     if entity.thumbnail_asset_id:
         try:
             asset = entity.thumbnail_asset
-            url = asset.url
-            if request and url.startswith('/'):
-                return request.build_absolute_uri(url)
-            return url
+            return asset.url
         except Asset.DoesNotExist:
             pass
     return None
@@ -417,8 +414,6 @@ class CourseDetailSerializer(serializers.Serializer):
             avatar_url = None
             if r.user.avatar:
                 avatar_url = r.user.avatar.url
-                if request and avatar_url.startswith('/'):
-                    avatar_url = request.build_absolute_uri(avatar_url)
             reviews_data.append({
                 'id': r.id,
                 'course': entity.id,

@@ -871,14 +871,4 @@ def _content_type_label(entity):
 
 
 def _create_file_asset(file_obj, user):
-    asset = Asset.objects.create(
-        storage_provider=Asset.StorageProvider.LOCAL,
-        object_key=f'uploads/{file_obj.name}',
-        file_name=file_obj.name,
-        mime_type=getattr(file_obj, 'content_type', ''),
-        file_size_bytes=file_obj.size,
-        uploaded_by=user,
-    )
-    from django.core.files.storage import default_storage
-    default_storage.save(asset.object_key, file_obj)
-    return asset
+    return Asset.upload_file(file_obj, user=user)

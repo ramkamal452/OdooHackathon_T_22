@@ -10,11 +10,25 @@ const nextConfig = {
       },
       {
         protocol: 'http',
-        hostname: '127.0.0.1',
+        hostname: 'backend',
         port: '8000',
         pathname: '/media/**',
       },
+      {
+        protocol: 'https',
+        hostname: '**.s3.**.amazonaws.com',
+        pathname: '/**',
+      },
     ],
+  },
+  async rewrites() {
+    const backendUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
+    return [
+      {
+        source: '/media/:path*',
+        destination: `${backendUrl}/media/:path*`,
+      },
+    ];
   },
 };
 

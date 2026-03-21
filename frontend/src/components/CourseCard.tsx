@@ -1,7 +1,17 @@
+'use client';
+
+import { useState } from 'react';
 import { CourseListItem, mediaUrl } from '@/lib/api';
-import Image from 'next/image';
 import Link from 'next/link';
 import ProgressBar from './ProgressBar';
+
+const Placeholder = () => (
+  <div className="flex h-full items-center justify-center text-blue-200 dark:text-blue-500/40">
+    <svg className="h-16 w-16" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M4 6h16v12H4V6zm2 2v8h12V8H6zm2 2h8v4H8v-4z" />
+    </svg>
+  </div>
+);
 
 interface CourseCardProps {
   course: CourseListItem;
@@ -11,6 +21,7 @@ interface CourseCardProps {
 
 export default function CourseCard({ course, href, progress }: CourseCardProps) {
   const thumb = mediaUrl(course.thumbnail);
+  const [imgError, setImgError] = useState(false);
   const instructor =
     course.instructor_name ||
     (course.instructor
@@ -27,20 +38,16 @@ export default function CourseCard({ course, href, progress }: CourseCardProps) 
       className="group flex flex-col overflow-hidden rounded-2xl border border-white/20 bg-white/70 shadow-lg shadow-black/5 backdrop-blur-xl transition-all duration-300 hover:border-blue-500/30 hover:shadow-xl hover:shadow-blue-500/10 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400/20 dark:shadow-black/20"
     >
       <div className="relative aspect-video w-full bg-gray-100 dark:bg-gray-800/50">
-        {thumb ? (
-          <Image
+        {thumb && !imgError ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
             src={thumb}
             alt=""
-            fill
-            className="object-cover transition group-hover:scale-[1.02]"
-            sizes="(max-width:768px) 100vw, 33vw"
+            className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-[1.02]"
+            onError={() => setImgError(true)}
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-blue-200 dark:text-blue-500/40">
-            <svg className="h-16 w-16" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M4 6h16v12H4V6zm2 2v8h12V8H6zm2 2h8v4H8v-4z" />
-            </svg>
-          </div>
+          <Placeholder />
         )}
         {progress !== undefined && progress >= 0 && (
           <div className="absolute bottom-0 left-0 right-0 bg-white/90 p-2 backdrop-blur-sm dark:bg-gray-900/80">

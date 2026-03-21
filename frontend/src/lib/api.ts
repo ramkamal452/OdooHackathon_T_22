@@ -21,9 +21,10 @@ export function clearStoredTokens(): void {
 export function mediaUrl(path: string | null | undefined): string | undefined {
   if (!path) return undefined;
   if (path.startsWith('http')) return path;
-  const base = API_BASE.replace(/\/$/, '');
+  if (path.startsWith('/media/')) return path;
   const p = path.startsWith('/') ? path : `/${path}`;
-  return `${base}${p}`;
+  if (p.startsWith('/media/')) return p;
+  return `${API_BASE.replace(/\/$/, '')}${p}`;
 }
 
 export const api = axios.create({

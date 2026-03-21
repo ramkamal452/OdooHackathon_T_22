@@ -1,5 +1,17 @@
+from urllib.parse import quote
+
 from django.conf import settings
 from django.db import models
+
+
+def _s3_is_active():
+    storages = getattr(settings, 'STORAGES', {})
+    backend = storages.get('default', {}).get('BACKEND', '')
+    return 's3' in backend.lower()
+
+
+def _s3_bucket_name():
+    return getattr(settings, 'AWS_STORAGE_BUCKET_NAME', '')
 
 
 class Asset(models.Model):
@@ -44,6 +56,40 @@ class Asset(models.Model):
 
     @property
     def url(self):
-        if self.storage_provider == self.StorageProvider.LOCAL:
-            return f'/media/{self.object_key}'
-        return f'https://{self.bucket_name}.s3.amazonaws.com/{self.object_key}'
+        use_s3 = (
+            self.storage_provider in (self.StorageProvider.S3, self.StorageProvider.CLOUDFRONT)
+            or _s3_is_active()
+        )
+        if use_s3:
+            bucket = self.bucket_name or _s3_bucket_name()
+            if bucket:
+                region = getattr(settings, 'AWS_S3_REGION_NAME', 'us-east-1')
+                encoded_key = quote(self.object_key, safe='/')
+                return f'https://{bucket}.s3.{region}.amazonaws.com/{encoded_key}'
+        return f'/media/{self.object_key}'
+
+    @classmethod
+    def upload_file(cls, file_obj, user=None, object_key=None):
+        from django.core.files.storage import default_storage
+
+        key = object_key or f'uploads/{file_obj.name}'
+        saved_name = default_storage.save(key, file_obj)
+
+        if _s3_is_active():
+            provider = cls.StorageProvider.S3
+            bucket = _s3_bucket_name()
+        else:
+            provider = cls.StorageProvider.LOCAL
+            bucket = ''
+
+        asset = cls.objects.create(
+            storage_provider=provider,
+            bucket_name=bucket,
+            object_key=saved_name,
+            file_name=file_obj.name,
+            mime_type=getattr(file_obj, 'content_type', ''),
+            file_size_bytes=file_obj.size,
+            is_public=True,
+            uploaded_by=user,
+        )
+        return asset

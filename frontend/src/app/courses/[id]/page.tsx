@@ -12,7 +12,6 @@ import {
   unwrapList,
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -47,6 +46,7 @@ export default function CourseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [thumbError, setThumbError] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -178,9 +178,15 @@ export default function CourseDetailPage() {
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="glass-card overflow-hidden shadow-lg shadow-black/5 dark:shadow-black/20">
           <div className="relative aspect-[21/9] min-h-[200px] bg-gray-100 dark:bg-gray-800 md:aspect-[3/1]">
-            {thumb ? (
+            {thumb && !thumbError ? (
               <>
-                <Image src={thumb} alt="" fill className="object-cover" priority sizes="100vw" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={thumb}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover"
+                  onError={() => setThumbError(true)}
+                />
                 <div
                   className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-transparent"
                   aria-hidden
