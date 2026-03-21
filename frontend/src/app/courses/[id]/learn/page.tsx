@@ -2,8 +2,14 @@
 
 import LessonList from '@/components/LessonList';
 import ProgressBar from '@/components/ProgressBar';
+import DashboardHeader from '@/components/DashboardHeader';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { CourseDetail, LessonItem, api, mediaUrl, unwrapList } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { ArrowLeft, CheckCircle2, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -48,45 +54,32 @@ export default function LearnPage() {
       const { data: c } = await api.get<CourseDetail>(`/api/courses/${courseId}/`);
       setCourse(c);
       const lessons = flattenLessons(c.modules);
-
       let targetId = lessonParam ? Number(lessonParam) : lessons[0]?.id;
-      if (targetId && !lessons.find((l) => l.id === targetId)) {
-        targetId = lessons[0]?.id;
-      }
+      if (targetId && !lessons.find((l) => l.id === targetId)) targetId = lessons[0]?.id;
       if (targetId) {
         const { data: ld } = await api.get<LessonItem>(`/api/lessons/${targetId}/`);
         setLesson(ld);
         if (!lessonParam || Number(lessonParam) !== targetId) {
           router.replace(`/courses/${courseId}/learn?lesson=${targetId}`);
         }
-      } else {
-        setLesson(null);
-      }
-
+      } else { setLesson(null); }
       if (user) {
         try {
           const { data: mine } = await api.get<unknown>('/api/enrollments/my/');
           const rows = unwrapList<EnrollmentRow>(mine);
-          const cid = Number(courseId);
-          const match = rows.find((r) => r.course_id === cid);
+          const match = rows.find((r) => r.course_id === Number(courseId));
           setEnrollment(match ?? null);
           if (match?.progress_percent != null) setServerProgress(match.progress_percent);
-        } catch {
-          setEnrollment(null);
-        }
+        } catch { setEnrollment(null); }
       }
     } catch {
       setError('Could not load lesson.');
       setCourse(null);
       setLesson(null);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [courseId, lessonParam, user, router]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   const completedMap = useMemo(() => {
     const m = new Map<number, boolean>();
@@ -98,10 +91,7 @@ export default function LearnPage() {
     return m;
   }, [course]);
 
-  const sortedLessons = useMemo(
-    () => flattenLessons(course?.modules ?? []),
-    [course]
-  );
+  const sortedLessons = useMemo(() => flattenLessons(course?.modules ?? []), [course]);
 
   const progressPct = useMemo(() => {
     if (serverProgress != null) return Math.round(serverProgress);
@@ -109,9 +99,7 @@ export default function LearnPage() {
     const total = sortedLessons.length;
     if (!total) return 0;
     let done = 0;
-    sortedLessons.forEach((l) => {
-      if (completedMap.get(l.id)) done += 1;
-    });
+    sortedLessons.forEach((l) => { if (completedMap.get(l.id)) done += 1; });
     return Math.round((done / total) * 100);
   }, [sortedLessons, completedMap, enrollment, serverProgress]);
 
@@ -119,24 +107,14 @@ export default function LearnPage() {
     if (!lesson) return;
     setPending(true);
     try {
-      const { data } = await api.post<{ progress_percent?: number }>(
-        `/api/lessons/${lesson.id}/complete/`,
-        {}
-      );
-      if (typeof data?.progress_percent === 'number') {
-        setServerProgress(data.progress_percent);
-      }
+      const { data } = await api.post<{ progress_percent?: number }>(`/api/lessons/${lesson.id}/complete/`, {});
+      if (typeof data?.progress_percent === 'number') setServerProgress(data.progress_percent);
       await load();
-    } catch {
-      setError('Could not mark complete.');
-    } finally {
-      setPending(false);
-    }
+    } catch { setError('Could not mark complete.'); }
+    finally { setPending(false); }
   }
 
-  function selectLesson(l: LessonItem) {
-    router.push(`/courses/${courseId}/learn?lesson=${l.id}`);
-  }
+  function selectLesson(l: LessonItem) { router.push(`/courses/${courseId}/learn?lesson=${l.id}`); }
 
   function nextLesson() {
     if (!lesson) return;
@@ -150,38 +128,30 @@ export default function LearnPage() {
 
   if (loading) {
     return (
-      <div className="surface-bg flex min-h-[50vh] items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-500 border-t-transparent dark:border-blue-400" />
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
   }
 
   if (error && !course) {
     return (
-      <div className="surface-bg p-8 text-center text-rose-500 dark:text-rose-400">
-        {error}
-        <div className="mt-4">
-          <Link
-            href={`/courses/${courseId}`}
-            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-          >
-            Back to course
-          </Link>
-        </div>
+      <div className="p-8 text-center">
+        <p className="text-destructive">{error}</p>
+        <Button variant="link" asChild className="mt-4">
+          <Link href={`/courses/${courseId}`}>Back to course</Link>
+        </Button>
       </div>
     );
   }
 
   if (!course || !lesson) {
     return (
-      <div className="surface-bg p-8 text-center text-gray-600 dark:text-gray-400">
-        <p>No lessons in this course yet.</p>
-        <Link
-          href={`/courses/${courseId}`}
-          className="mt-4 inline-block text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-        >
-          Back to course
-        </Link>
+      <div className="p-8 text-center">
+        <p className="text-muted-foreground">No lessons in this course yet.</p>
+        <Button variant="link" asChild className="mt-4">
+          <Link href={`/courses/${courseId}`}>Back to course</Link>
+        </Button>
       </div>
     );
   }
@@ -189,102 +159,89 @@ export default function LearnPage() {
   const resource = mediaUrl(lesson.resource_url);
 
   return (
-    <div className="min-h-screen surface-bg">
-      <div className="mx-auto flex max-w-7xl flex-col lg:flex-row">
-        <aside className="w-full border-b border-white/20 bg-white/80 p-4 backdrop-blur-xl dark:border-white/5 dark:bg-gray-900/80 lg:w-80 lg:border-b-0 lg:border-r">
-          <Link
-            href={`/courses/${courseId}`}
-            className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-          >
-            ← Back to course
-          </Link>
-          <h2 className="mt-4 line-clamp-2 text-lg font-semibold text-gray-900 dark:text-white">{course.title}</h2>
-          <div className="mt-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Progress</p>
-            <ProgressBar value={progressPct} className="mt-1" />
+    <>
+      <DashboardHeader
+        title={lesson.title}
+        subtitle={course.title}
+      />
+
+      <div className="flex flex-1 overflow-hidden">
+        <aside className="hidden w-72 flex-col border-r bg-card lg:flex">
+          <div className="p-4">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href={`/courses/${courseId}`}><ArrowLeft className="mr-1.5 h-4 w-4" />Back to course</Link>
+            </Button>
+            <ProgressBar value={progressPct} className="mt-4" />
           </div>
-          <div className="mt-6 max-h-[calc(100vh-12rem)] overflow-y-auto pr-1">
+          <Separator />
+          <ScrollArea className="flex-1 p-2">
             <LessonList
               modules={course.modules || []}
               currentLessonId={lesson.id}
               onSelect={selectLesson}
               completedMap={completedMap}
             />
-          </div>
+          </ScrollArea>
         </aside>
 
-        <div className="flex-1 p-4 sm:p-8">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{lesson.title}</h1>
+        <div className="flex-1 overflow-auto">
+          <div className="mx-auto max-w-4xl px-4 py-8 sm:px-8">
+            <Card>
+              <CardContent className="p-6">
+                {lesson.content_type === 'video' && lesson.video_url && (
+                  <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
+                    <iframe
+                      title={lesson.title}
+                      src={lesson.video_url}
+                      className="h-full w-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                )}
+                {lesson.content_type === 'text' && (
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <p className="whitespace-pre-wrap">{lesson.content_body}</p>
+                  </div>
+                )}
+                {lesson.content_type === 'pdf' && resource && (
+                  <Button variant="outline" asChild>
+                    <a href={resource} target="_blank" rel="noreferrer">Open PDF</a>
+                  </Button>
+                )}
+                {lesson.content_type === 'link' && (
+                  <div className="space-y-2">
+                    {resource && (
+                      <Button variant="link" asChild className="p-0 h-auto">
+                        <a href={resource} target="_blank" rel="noreferrer">{resource}</a>
+                      </Button>
+                    )}
+                    {lesson.content_body && (
+                      <p className="whitespace-pre-wrap text-muted-foreground">{lesson.content_body}</p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-          <div className="glass-card mt-8 p-6">
-            {lesson.content_type === 'video' && lesson.video_url && (
-              <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
-                <iframe
-                  title={lesson.title}
-                  src={lesson.video_url}
-                  className="h-full w-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-            )}
-            {lesson.content_type === 'text' && (
-              <div className="prose prose-sm max-w-none text-gray-800 dark:prose-invert dark:text-gray-200">
-                <p className="whitespace-pre-wrap">{lesson.content_body}</p>
-              </div>
-            )}
-            {lesson.content_type === 'pdf' && resource && (
-              <div>
-                <a
-                  href={resource}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                >
-                  Open PDF
-                </a>
-              </div>
-            )}
-            {lesson.content_type === 'link' && (
-              <div className="space-y-2">
-                {resource ? (
-                  <a
-                    href={resource}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                  >
-                    {resource}
-                  </a>
-                ) : null}
-                {lesson.content_body ? (
-                  <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300">{lesson.content_body}</p>
-                ) : null}
-              </div>
-            )}
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button
+                onClick={markComplete}
+                disabled={pending || !!completedMap.get(lesson.id)}
+                variant={completedMap.get(lesson.id) ? 'secondary' : 'default'}
+              >
+                {completedMap.get(lesson.id) ? (
+                  <><CheckCircle2 className="mr-2 h-4 w-4" />Completed</>
+                ) : pending ? 'Saving…' : 'Mark complete'}
+              </Button>
+              <Button variant="outline" onClick={nextLesson} disabled={!hasNext}>
+                Next lesson<ChevronRight className="ml-1.5 h-4 w-4" />
+              </Button>
+            </div>
+            {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
           </div>
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={markComplete}
-              disabled={pending || !!completedMap.get(lesson.id)}
-              className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
-            >
-              {completedMap.get(lesson.id) ? 'Completed' : pending ? 'Saving…' : 'Mark complete'}
-            </button>
-            <button
-              type="button"
-              onClick={nextLesson}
-              disabled={!hasNext}
-              className="btn-secondary px-4 py-2 text-sm disabled:opacity-40"
-            >
-              Next lesson
-            </button>
-          </div>
-          {error && <p className="mt-4 text-sm text-rose-500 dark:text-rose-400">{error}</p>}
         </div>
       </div>
-    </div>
+    </>
   );
 }

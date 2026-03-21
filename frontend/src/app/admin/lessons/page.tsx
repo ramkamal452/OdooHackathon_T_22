@@ -3,14 +3,36 @@
 import DataTable, { type Column } from '@/components/DataTable';
 import Modal from '@/components/Modal';
 import Pagination from '@/components/Pagination';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useAdminPage } from '@/app/admin/AdminPageContext';
 import { fetchPage } from '@/lib/admin-fetch';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/Toast';
 import { isAxiosError } from 'axios';
-import { useCallback, useEffect, useState } from 'react';
+import {
+  AlignLeft,
+  Edit,
+  Eye,
+  FileText,
+  Link2,
+  Trash2,
+  Video,
+} from 'lucide-react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
-interface LessonRow {
+interface LessonRow extends Record<string, unknown> {
   id: number;
   title: string;
   module_title: string;
@@ -43,6 +65,10 @@ interface AdminModuleOption {
 
 const PAGE_SIZE = 10;
 
+const ALL = '__all__';
+const ANY = '__any__';
+const NO_MODULE = '__none__';
+
 function getApiError(err: unknown): string {
   if (isAxiosError(err) && err.response?.data) {
     const d = err.response.data as Record<string, unknown> | string;
@@ -73,98 +99,17 @@ async function fetchAllAdminModules(): Promise<AdminModuleOption[]> {
 }
 
 function ContentIcon({ type }: { type: string }) {
-  const common = 'h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400';
+  const cls = 'h-4 w-4 shrink-0 text-primary';
   switch (type) {
     case 'video':
-      return (
-        <svg className={common} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-          />
-        </svg>
-      );
+      return <Video className={cls} />;
     case 'pdf':
-      return (
-        <svg className={common} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-          />
-        </svg>
-      );
+      return <FileText className={cls} />;
     case 'link':
-      return (
-        <svg className={common} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-          />
-        </svg>
-      );
+      return <Link2 className={cls} />;
     default:
-      return (
-        <svg className={common} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M4 6h16M4 12h16M4 18h7"
-          />
-        </svg>
-      );
+      return <AlignLeft className={cls} />;
   }
-}
-
-function EyeIcon() {
-  return (
-    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-      />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-      />
-    </svg>
-  );
-}
-
-function PencilIcon() {
-  return (
-    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-      />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-      />
-    </svg>
-  );
 }
 
 type ContentType = 'text' | 'video' | 'pdf' | 'link';
@@ -322,7 +267,7 @@ export default function AdminLessonsPage() {
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!editingId && !formModuleId) {
       toast('Please select a module', 'error');
@@ -376,27 +321,27 @@ export default function AdminLessonsPage() {
     {
       key: 'id',
       header: 'ID',
-      render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">#LS-{r.id}</span>,
+      render: (r) => <span className="font-mono text-muted-foreground">#LS-{r.id}</span>,
     },
     {
       key: 'title',
       header: 'Lesson Title',
-      render: (r) => <span className="font-medium text-blue-600 dark:text-blue-400">{r.title}</span>,
+      render: (r) => <span className="font-medium text-primary">{r.title}</span>,
     },
     {
       key: 'module',
       header: 'Module Title',
       render: (r) => (
-        <span className="inline-flex rounded-full border border-white/20 bg-white/50 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:border-white/10 dark:bg-white/10 dark:text-gray-300">
+        <Badge variant="secondary" className="font-normal">
           {r.module_title}
-        </span>
+        </Badge>
       ),
     },
     {
       key: 'content_type',
       header: 'Content Type',
       render: (r) => (
-        <div className="flex items-center gap-2 capitalize text-gray-800 dark:text-gray-200">
+        <div className="flex items-center gap-2 capitalize text-foreground">
           <ContentIcon type={r.content_type} />
           {r.content_type}
         </div>
@@ -406,7 +351,9 @@ export default function AdminLessonsPage() {
       key: 'duration',
       header: 'Duration',
       render: (r) => (
-        <span>{r.duration_minutes != null ? `${r.duration_minutes} min` : '—'}</span>
+        <span className="text-foreground">
+          {r.duration_minutes != null ? `${r.duration_minutes} min` : '—'}
+        </span>
       ),
     },
     {
@@ -419,44 +366,34 @@ export default function AdminLessonsPage() {
       header: 'Preview',
       render: (r) =>
         r.is_preview ? (
-          <span className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400">
+          <Badge variant="default" className="font-semibold">
             YES
-          </span>
+          </Badge>
         ) : (
-          <span className="inline-flex rounded-full border border-gray-500/20 bg-gray-500/10 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:border-gray-400/10 dark:bg-gray-400/10 dark:text-gray-400">
-            NO
-          </span>
+          <Badge variant="secondary">NO</Badge>
         ),
     },
     {
       key: 'actions',
       header: 'Actions',
       render: (r) => (
-        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-          <button
-            type="button"
-            onClick={() => setViewRow(r)}
-            className="rounded p-1 hover:bg-white/10 hover:text-blue-600 dark:hover:bg-white/10 dark:hover:text-blue-400"
-            aria-label="View"
-          >
-            <EyeIcon />
-          </button>
-          <button
-            type="button"
-            onClick={() => openEdit(r)}
-            className="rounded p-1 hover:bg-white/10 hover:text-blue-600 dark:hover:bg-white/10 dark:hover:text-blue-400"
-            aria-label="Edit"
-          >
-            <PencilIcon />
-          </button>
-          <button
+        <div className="flex items-center gap-1 text-muted-foreground">
+          <Button variant="ghost" size="icon-sm" type="button" onClick={() => setViewRow(r)} aria-label="View">
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon-sm" type="button" onClick={() => openEdit(r)} aria-label="Edit">
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
             type="button"
             onClick={() => setDeleteTarget(r)}
-            className="rounded p-1 hover:bg-white/10 hover:text-rose-600 dark:hover:bg-white/10 dark:hover:text-rose-400"
             aria-label="Delete"
+            className="text-destructive hover:text-destructive"
           >
-            <TrashIcon />
-          </button>
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       ),
     },
@@ -468,81 +405,94 @@ export default function AdminLessonsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-end gap-4">
-        <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Course</label>
-          <select
-            className="glass-input mt-1 text-sm"
-            value={courseId}
-            onChange={(e) => {
-              setCourseId(e.target.value);
+      <Card size="sm">
+        <CardContent className="flex flex-wrap items-end gap-4 pt-4">
+          <div className="space-y-2">
+            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Course</Label>
+            <Select
+              value={courseId || ALL}
+              onValueChange={(v) => {
+                const s = v ?? '';
+                setCourseId(s === ALL ? '' : s);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full min-w-[180px]">
+                <SelectValue placeholder="Course" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>All</SelectItem>
+                {courses.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>
+                    {c.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Module</Label>
+            <Select
+              value={moduleId || ALL}
+              onValueChange={(v) => {
+                const s = v ?? '';
+                setModuleId(s === ALL ? '' : s);
+                setPage(1);
+              }}
+              disabled={!courseId}
+            >
+              <SelectTrigger className="w-full min-w-[180px]">
+                <SelectValue placeholder="Module" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>All</SelectItem>
+                {modules.map((m) => (
+                  <SelectItem key={m.id} value={String(m.id)}>
+                    {m.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Content</Label>
+            <Select
+              value={contentType || ANY}
+              onValueChange={(v) => {
+                const s = v ?? '';
+                setContentType(s === ANY ? '' : s);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full min-w-[160px]">
+                <SelectValue placeholder="Content type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ANY}>Any</SelectItem>
+                <SelectItem value="video">Video</SelectItem>
+                <SelectItem value="text">Text</SelectItem>
+                <SelectItem value="pdf">PDF</SelectItem>
+                <SelectItem value="link">Link</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setCourseId('');
+              setModuleId('');
+              setContentType('');
               setPage(1);
             }}
           >
-            <option value="">All</option>
-            {courses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Module</label>
-          <select
-            className="glass-input mt-1 text-sm"
-            value={moduleId}
-            onChange={(e) => {
-              setModuleId(e.target.value);
-              setPage(1);
-            }}
-            disabled={!courseId}
-          >
-            <option value="">All</option>
-            {modules.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.title}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Content</label>
-          <select
-            className="glass-input mt-1 text-sm"
-            value={contentType}
-            onChange={(e) => {
-              setContentType(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">Any</option>
-            <option value="video">Video</option>
-            <option value="text">Text</option>
-            <option value="pdf">PDF</option>
-            <option value="link">Link</option>
-          </select>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            setCourseId('');
-            setModuleId('');
-            setContentType('');
-            setPage(1);
-          }}
-          className="btn-secondary px-4 py-2 text-sm font-medium shadow-sm"
-        >
-          Reset
-        </button>
-        <button
-          type="button"
-          onClick={() => loadTable()}
-          className="btn-primary px-4 py-2 text-sm font-semibold"
-        >
-          Apply
-        </button>
-      </div>
+            Reset
+          </Button>
+          <Button type="button" onClick={() => loadTable()}>
+            Apply
+          </Button>
+        </CardContent>
+      </Card>
       <DataTable columns={columns} data={rows} loading={loading} emptyMessage="No lessons found." />
       <Pagination
         currentPage={page}
@@ -561,57 +511,60 @@ export default function AdminLessonsPage() {
         size="lg"
       >
         {loadEdit ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Loading lesson…</p>
+          <p className="text-sm text-muted-foreground">Loading lesson…</p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Module</label>
-              <select
-                className="glass-input mt-1 w-full text-sm"
-                value={formModuleId}
-                onChange={(e) => setFormModuleId(e.target.value)}
-                required={!isEdit}
+            <div className="space-y-2">
+              <Label>Module</Label>
+              <Select
+                value={formModuleId || NO_MODULE}
+                onValueChange={(v) => {
+                  const s = v ?? '';
+                  setFormModuleId(s === NO_MODULE ? '' : s);
+                }}
                 disabled={moduleSelectDisabled}
               >
-                {!isEdit && <option value="">Select module…</option>}
-                {allModules.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.course_title} — {m.title}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select module…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {!isEdit && <SelectItem value={NO_MODULE}>Select module…</SelectItem>}
+                  {allModules.map((m) => (
+                    <SelectItem key={m.id} value={String(m.id)}>
+                      {m.course_title} — {m.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {isEdit && (
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Module cannot be changed after creation.</p>
+                <p className="text-xs text-muted-foreground">Module cannot be changed after creation.</p>
               )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
-              <input
-                className="glass-input mt-1 w-full"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                placeholder="Lesson title"
-              />
+            <div className="space-y-2">
+              <Label>
+                Title <span className="text-destructive">*</span>
+              </Label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Lesson title" />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Content type</label>
-              <select
-                className="glass-input mt-1 w-full text-sm"
-                value={formContentType}
-                onChange={(e) => setFormContentType(e.target.value as ContentType)}
-              >
-                <option value="text">Text</option>
-                <option value="video">Video</option>
-                <option value="pdf">PDF</option>
-                <option value="link">Link</option>
-              </select>
+            <div className="space-y-2">
+              <Label>Content type</Label>
+              <Select value={formContentType} onValueChange={(v) => setFormContentType(v as ContentType)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text">Text</SelectItem>
+                  <SelectItem value="video">Video</SelectItem>
+                  <SelectItem value="pdf">PDF</SelectItem>
+                  <SelectItem value="link">Link</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             {formContentType === 'text' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Content</label>
-                <textarea
-                  className="glass-input mt-1 min-h-[120px] w-full resize-y text-sm"
+              <div className="space-y-2">
+                <Label>Content</Label>
+                <Textarea
+                  className="min-h-[120px] resize-y text-sm"
                   value={contentBody}
                   onChange={(e) => setContentBody(e.target.value)}
                   placeholder="Lesson text content"
@@ -619,34 +572,21 @@ export default function AdminLessonsPage() {
               </div>
             )}
             {formContentType === 'video' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Video URL</label>
-                <input
-                  className="glass-input mt-1 w-full"
-                  type="url"
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  placeholder="https://…"
-                />
+              <div className="space-y-2">
+                <Label>Video URL</Label>
+                <Input type="url" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="https://…" />
               </div>
             )}
             {(formContentType === 'pdf' || formContentType === 'link') && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Resource URL</label>
-                <input
-                  className="glass-input mt-1 w-full"
-                  type="url"
-                  value={resourceUrl}
-                  onChange={(e) => setResourceUrl(e.target.value)}
-                  placeholder="https://…"
-                />
+              <div className="space-y-2">
+                <Label>Resource URL</Label>
+                <Input type="url" value={resourceUrl} onChange={(e) => setResourceUrl(e.target.value)} placeholder="https://…" />
               </div>
             )}
             <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Duration (minutes)</label>
-                <input
-                  className="glass-input mt-1 w-full"
+              <div className="space-y-2">
+                <Label>Duration (minutes)</Label>
+                <Input
                   type="number"
                   min={0}
                   value={durationMinutes}
@@ -654,33 +594,27 @@ export default function AdminLessonsPage() {
                   placeholder="Optional"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sort order</label>
-                <input
-                  className="glass-input mt-1 w-full"
-                  type="number"
-                  min={0}
-                  value={sortOrder}
-                  onChange={(e) => setSortOrder(e.target.value)}
-                />
+              <div className="space-y-2">
+                <Label>Sort order</Label>
+                <Input type="number" min={0} value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} />
               </div>
             </div>
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
               <input
                 type="checkbox"
                 checked={isPreview}
                 onChange={(e) => setIsPreview(e.target.checked)}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                className="size-4 rounded border border-input accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
               Preview lesson (visible before enrollment)
             </label>
-            <div className="flex justify-end gap-3 border-t border-gray-100 pt-4 dark:border-white/10">
-              <button type="button" onClick={closeLessonModal} className="btn-secondary">
+            <div className="flex justify-end gap-3 border-t pt-4">
+              <Button type="button" variant="outline" onClick={closeLessonModal}>
                 Cancel
-              </button>
-              <button type="submit" disabled={saving} className="btn-primary">
+              </Button>
+              <Button type="submit" disabled={saving}>
                 {saving ? 'Saving…' : isEdit ? 'Update' : 'Create'}
-              </button>
+              </Button>
             </div>
           </form>
         )}
@@ -694,15 +628,15 @@ export default function AdminLessonsPage() {
         size="sm"
       >
         {viewRow ? (
-          <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+          <div className="space-y-2 text-sm text-foreground">
             <p>
-              <span className="font-medium text-gray-500 dark:text-gray-400">Title:</span> {viewRow.title}
+              <span className="font-medium text-muted-foreground">Title:</span> {viewRow.title}
             </p>
             <p>
-              <span className="font-medium text-gray-500 dark:text-gray-400">Module:</span> {viewRow.module_title}
+              <span className="font-medium text-muted-foreground">Module:</span> {viewRow.module_title}
             </p>
             <p className="capitalize">
-              <span className="font-medium text-gray-500 dark:text-gray-400">Type:</span> {viewRow.content_type}
+              <span className="font-medium text-muted-foreground">Type:</span> {viewRow.content_type}
             </p>
           </div>
         ) : null}
@@ -715,22 +649,16 @@ export default function AdminLessonsPage() {
         subtitle="This action cannot be undone."
         size="sm"
       >
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Are you sure you want to delete{' '}
-          <strong className="text-gray-900 dark:text-white">{deleteTarget?.title}</strong>?
+        <p className="text-sm text-muted-foreground">
+          Are you sure you want to delete <strong className="text-foreground">{deleteTarget?.title}</strong>?
         </p>
         <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={() => setDeleteTarget(null)} className="btn-secondary">
+          <Button variant="outline" type="button" onClick={() => setDeleteTarget(null)}>
             Cancel
-          </button>
-          <button
-            type="button"
-            disabled={deleting}
-            onClick={handleDelete}
-            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-rose-500/25 transition-all hover:from-rose-600 hover:to-rose-700 disabled:opacity-60"
-          >
+          </Button>
+          <Button variant="destructive" type="button" disabled={deleting} onClick={handleDelete}>
             {deleting ? 'Deleting…' : 'Delete'}
-          </button>
+          </Button>
         </div>
       </Modal>
     </div>

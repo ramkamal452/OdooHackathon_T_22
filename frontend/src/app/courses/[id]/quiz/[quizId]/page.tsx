@@ -1,7 +1,10 @@
 'use client';
 
 import QuizPlayer, { QuizResultState } from '@/components/QuizPlayer';
+import DashboardHeader from '@/components/DashboardHeader';
+import { Button } from '@/components/ui/button';
 import { QuizDetail, QuizQuestion, api } from '@/lib/api';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -23,22 +26,11 @@ function parseAttemptResult(
     const selectedOptionId = ans?.option_id ?? 0;
     const row = answersRaw.find(
       (a: { question_id?: number }) => Number((a as { question_id: number }).question_id) === q.id
-    ) as
-      | {
-          selected_option_id?: number;
-          is_correct?: boolean;
-          marks_awarded?: number;
-        }
-      | undefined;
+    ) as { selected_option_id?: number; is_correct?: boolean; marks_awarded?: number } | undefined;
     const correct = row
       ? Boolean(row.is_correct)
       : (q.options || []).find((o) => o.id === selectedOptionId)?.is_correct ?? false;
-    return {
-      questionId: q.id,
-      correct,
-      selectedOptionId,
-      marksAwarded: row?.marks_awarded,
-    };
+    return { questionId: q.id, correct, selectedOptionId, marksAwarded: row?.marks_awarded };
   });
 
   return { score, totalMarks, percentage, isPassed, perQuestion, raw: data };
@@ -62,64 +54,52 @@ export default function QuizPage() {
     } catch {
       setError('Quiz not found.');
       setQuiz(null);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [quizId]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
-  async function handleSubmit(
-    answers: { question_id: number; option_id: number }[]
-  ): Promise<QuizResultState> {
-    const { data } = await api.post<unknown>(`/api/quizzes/${quizId}/attempt/`, {
-      answers,
-    });
-    const qs = quiz?.questions ?? [];
-    return parseAttemptResult(data, qs, answers);
+  async function handleSubmit(answers: { question_id: number; option_id: number }[]): Promise<QuizResultState> {
+    const { data } = await api.post<unknown>(`/api/quizzes/${quizId}/attempt/`, { answers });
+    return parseAttemptResult(data, quiz?.questions ?? [], answers);
   }
 
   if (loading) {
     return (
-      <div className="surface-bg flex min-h-[50vh] items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-500 border-t-transparent dark:border-blue-400" />
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
   }
 
   if (error || !quiz) {
     return (
-      <div className="surface-bg mx-auto max-w-lg px-4 py-16 text-center">
-        <p className="text-rose-500 dark:text-rose-400">{error || 'Unavailable'}</p>
-        <Link
-          href={`/courses/${courseId}`}
-          className="mt-4 inline-block text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-        >
-          Back to course
-        </Link>
+      <div className="px-4 py-16 text-center">
+        <p className="text-destructive">{error || 'Unavailable'}</p>
+        <Button variant="link" asChild className="mt-4">
+          <Link href={`/courses/${courseId}`}>Back to course</Link>
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen surface-bg">
-      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
-        <Link
-          href={`/courses/${courseId}`}
-          className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-        >
-          ← Back to course
-        </Link>
-        <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">{quiz.title}</h1>
-        {quiz.description ? (
-          <p className="mt-2 text-gray-600 dark:text-gray-400">{quiz.description}</p>
-        ) : null}
-        <div className="mt-8">
+    <>
+      <DashboardHeader
+        title={quiz.title}
+        subtitle={quiz.description || 'Quiz'}
+        actions={
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/courses/${courseId}`}><ArrowLeft className="mr-1.5 h-4 w-4" />Back to course</Link>
+          </Button>
+        }
+      />
+
+      <div className="flex-1 overflow-auto px-4 py-8 lg:px-8">
+        <div className="mx-auto max-w-2xl">
           <QuizPlayer questions={quiz.questions || []} onSubmit={handleSubmit} />
         </div>
       </div>
-    </div>
+    </>
   );
 }

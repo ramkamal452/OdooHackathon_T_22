@@ -2,9 +2,21 @@
 
 import DataTable, { type Column } from '@/components/DataTable';
 import Pagination from '@/components/Pagination';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useAdminPage } from '@/app/admin/AdminPageContext';
 import { fetchPage } from '@/lib/admin-fetch';
 import { api } from '@/lib/api';
+import { GripVertical, Pencil } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 interface QuestionRow {
@@ -17,29 +29,7 @@ interface QuestionRow {
 }
 
 const PAGE_SIZE = 10;
-
-function DragHandle() {
-  return (
-    <span className="inline-flex cursor-grab text-gray-400 dark:text-gray-500" aria-hidden>
-      <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M8 6a2 2 0 11-4 0 2 2 0 014 0zm0 6a2 2 0 11-4 0 2 2 0 014 0zm0 6a2 2 0 11-4 0 2 2 0 014 0zm8-12a2 2 0 11-4 0 2 2 0 014 0zm0 6a2 2 0 11-4 0 2 2 0 014 0zm0 6a2 2 0 11-4 0 2 2 0 014 0z" />
-      </svg>
-    </span>
-  );
-}
-
-function PencilIcon() {
-  return (
-    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-      />
-    </svg>
-  );
-}
+const ALL_QUIZZES = '__all__';
 
 export default function AdminQuizQuestionsPage() {
   const { setHeader, search } = useAdminPage();
@@ -97,15 +87,15 @@ export default function AdminQuizQuestionsPage() {
       {
         key: 'id',
         header: 'ID',
-        render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">#Q-{r.id}</span>,
+        render: (r) => <span className="font-mono text-muted-foreground">#Q-{r.id}</span>,
       },
       {
         key: 'quiz',
         header: 'Quiz Title',
         render: (r) => (
           <div>
-            <p className="font-medium text-gray-900 dark:text-white">{r.quiz_title}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Assessment question</p>
+            <p className="font-medium text-foreground">{r.quiz_title}</p>
+            <p className="text-xs text-muted-foreground">Assessment question</p>
           </div>
         ),
       },
@@ -113,16 +103,19 @@ export default function AdminQuizQuestionsPage() {
         key: 'question_text',
         header: 'Question Text',
         render: (r) => (
-          <p className="max-w-md truncate text-gray-800 dark:text-gray-200">{r.question_text}</p>
+          <p className="max-w-md truncate text-foreground">{r.question_text}</p>
         ),
       },
       {
         key: 'question_type',
         header: 'Type',
         render: (r) => (
-          <span className="inline-flex rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold uppercase text-blue-800 dark:border-blue-400/20 dark:bg-blue-400/10 dark:text-blue-300">
+          <Badge
+            variant="outline"
+            className="border-blue-500/20 bg-blue-500/10 font-semibold uppercase text-blue-800 dark:border-blue-400/20 dark:bg-blue-400/10 dark:text-blue-300"
+          >
             {(r.question_type || 'mcq').toUpperCase()}
-          </span>
+          </Badge>
         ),
       },
       {
@@ -135,7 +128,9 @@ export default function AdminQuizQuestionsPage() {
         header: 'Sort Order',
         render: (r) => (
           <div className="flex items-center gap-2">
-            <DragHandle />
+            <span className="inline-flex cursor-grab text-muted-foreground" aria-hidden>
+              <GripVertical className="size-4" />
+            </span>
             <span className="tabular-nums">{r.sort_order}</span>
           </div>
         ),
@@ -144,9 +139,9 @@ export default function AdminQuizQuestionsPage() {
         key: 'actions',
         header: 'Actions',
         render: () => (
-          <button type="button" className="rounded p-1 text-gray-500 hover:bg-white/10 hover:text-blue-600 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-blue-400" aria-label="Edit">
-            <PencilIcon />
-          </button>
+          <Button type="button" variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" aria-label="Edit">
+            <Pencil className="size-4" />
+          </Button>
         ),
       },
     ],
@@ -159,23 +154,28 @@ export default function AdminQuizQuestionsPage() {
     <div className="grid gap-8 lg:grid-cols-[1fr_280px]">
       <div className="space-y-6">
         <div className="flex flex-wrap gap-4">
-          <div>
-            <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Quiz</label>
-            <select
-              className="glass-input mt-1 text-sm"
-              value={quizTitle}
-              onChange={(e) => {
-                setQuizTitle(e.target.value);
+          <div className="space-y-2">
+            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Quiz</Label>
+            <Select
+              value={quizTitle || ALL_QUIZZES}
+              onValueChange={(v) => {
+                const s = v ?? '';
+                setQuizTitle(s === ALL_QUIZZES ? '' : s);
                 setPage(1);
               }}
             >
-              <option value="">All (use header search)</option>
-              {quizTitles.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="mt-1 w-full min-w-[220px]">
+                <SelectValue placeholder="All (use header search)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_QUIZZES}>All (use header search)</SelectItem>
+                {quizTitles.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <DataTable columns={columns} data={rows} loading={loading} emptyMessage="No questions found." />
@@ -188,10 +188,14 @@ export default function AdminQuizQuestionsPage() {
           itemName="questions"
         />
       </div>
-      <aside className="glass-card h-fit border border-dashed border-blue-200/50 p-6 dark:border-blue-500/20">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Database Health</p>
-        <p className="mt-2 text-3xl font-semibold text-blue-600 dark:text-blue-400">{loading ? '—' : health}</p>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Total questions indexed</p>
+      <aside>
+        <Card className="h-fit border-dashed border-primary/30">
+          <CardContent className="p-6">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Database Health</p>
+            <p className="mt-2 text-3xl font-semibold text-primary">{loading ? '—' : health}</p>
+            <p className="mt-1 text-sm text-muted-foreground">Total questions indexed</p>
+          </CardContent>
+        </Card>
       </aside>
     </div>
   );

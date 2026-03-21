@@ -4,11 +4,24 @@ import DataTable, { type Column } from '@/components/DataTable';
 import Modal from '@/components/Modal';
 import Pagination from '@/components/Pagination';
 import StatsCard from '@/components/StatsCard';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useAdminPage } from '@/app/admin/AdminPageContext';
 import { formatDate, initialsFromName, type PaginatedResponse } from '@/lib/admin-format';
 import { countActiveUsers, fetchPage } from '@/lib/admin-fetch';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/Toast';
+import { Activity, GraduationCap, Users, UserPlus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 interface AdminUserRow {
@@ -56,9 +69,7 @@ export default function AdminUsersPage() {
         countActiveUsers(search),
       ]);
       setStats({ total: all.count, active, instructors: inst.count, learners: learn.count });
-    } finally {
-      setStatsLoading(false);
-    }
+    } finally { setStatsLoading(false); }
   }, [search]);
 
   const loadTable = useCallback(async () => {
@@ -67,9 +78,7 @@ export default function AdminUsersPage() {
       const { data } = await api.get<PaginatedResponse<AdminUserRow>>('/api/auth/users/', { params: { page, search } });
       setRows(data.results);
       setTotal(data.count);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [page, search]);
 
   useEffect(() => { loadStats(); }, [loadStats]);
@@ -88,10 +97,14 @@ export default function AdminUsersPage() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to create user';
       toast(msg, 'error');
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
+
+  const roleVariants: Record<string, 'default' | 'secondary' | 'outline'> = {
+    admin: 'default',
+    instructor: 'secondary',
+    learner: 'outline',
+  };
 
   const columns: Column<AdminUserRow>[] = [
     {
@@ -99,7 +112,7 @@ export default function AdminUsersPage() {
       header: 'ID',
       render: (r) => {
         const prefix = r.role === 'admin' ? 'ADM' : r.role === 'instructor' ? 'INS' : 'LRN';
-        return <span className="font-mono text-gray-500 dark:text-gray-400">#{prefix}-{r.id}</span>;
+        return <span className="font-mono text-muted-foreground">#{prefix}-{r.id}</span>;
       },
     },
     {
@@ -107,10 +120,12 @@ export default function AdminUsersPage() {
       header: 'Full Name',
       render: (r) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-xs font-medium text-white shadow-sm">
-            {initialsFromName(r.first_name, r.last_name, r.email)}
-          </div>
-          <span className="font-medium text-gray-900 dark:text-white">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
+              {initialsFromName(r.first_name, r.last_name, r.email)}
+            </AvatarFallback>
+          </Avatar>
+          <span className="font-medium">
             {[r.first_name, r.last_name].filter(Boolean).join(' ') || r.email}
           </span>
         </div>
@@ -120,36 +135,25 @@ export default function AdminUsersPage() {
     {
       key: 'role',
       header: 'Role',
-      render: (r) => {
-        const colors: Record<string, string> = {
-          admin: 'border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-400/20 dark:bg-purple-400/10 dark:text-purple-400',
-          instructor: 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-400/20 dark:bg-blue-400/10 dark:text-blue-400',
-          learner: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400',
-        };
-        return (
-          <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${colors[r.role] || colors.learner}`}>
-            {r.role}
-          </span>
-        );
-      },
+      render: (r) => (
+        <Badge variant={roleVariants[r.role] || 'outline'} className="capitalize">
+          {r.role}
+        </Badge>
+      ),
     },
     {
       key: 'is_active',
       header: 'Status',
-      render: (r) =>
-        r.is_active ? (
-          <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400">
-            <span className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 dark:bg-emerald-400" />
-            Active
-          </span>
-        ) : (
-          <span className="inline-flex items-center rounded-full border border-gray-500/20 bg-gray-500/10 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:border-gray-400/10 dark:bg-gray-400/10 dark:text-gray-400">
-            <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-gray-400" />
-            Inactive
-          </span>
-        ),
+      render: (r) => r.is_active ? (
+        <Badge variant="default" className="gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />Active
+        </Badge>
+      ) : (
+        <Badge variant="secondary" className="gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-current" />Inactive
+        </Badge>
+      ),
     },
-
   ];
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -157,10 +161,10 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-8">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatsCard label="Total Users" value={statsLoading ? '—' : stats.total} icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>} />
-        <StatsCard label="Active Now" value={statsLoading ? '—' : stats.active} variant="success" />
-        <StatsCard label="Instructors" value={statsLoading ? '—' : stats.instructors} />
-        <StatsCard label="Learners" value={statsLoading ? '—' : stats.learners} />
+        <StatsCard label="Total Users" value={statsLoading ? '—' : stats.total} icon={<Users className="h-5 w-5" />} />
+        <StatsCard label="Active Now" value={statsLoading ? '—' : stats.active} icon={<Activity className="h-5 w-5" />} variant="success" />
+        <StatsCard label="Instructors" value={statsLoading ? '—' : stats.instructors} icon={<GraduationCap className="h-5 w-5" />} />
+        <StatsCard label="Learners" value={statsLoading ? '—' : stats.learners} icon={<UserPlus className="h-5 w-5" />} />
       </div>
       <DataTable columns={columns} data={rows} loading={loading} emptyMessage="No users match your search." />
       <Pagination currentPage={page} totalPages={totalPages} totalItems={total} pageSize={PAGE_SIZE} onPageChange={setPage} itemName="users" />
@@ -168,40 +172,43 @@ export default function AdminUsersPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Create New User" subtitle="Add a new user to the platform.">
         <form onSubmit={handleCreate} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">First Name</label>
-              <input required value={form.first_name} onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))} className="glass-input mt-1 w-full" placeholder="John" />
+            <div className="space-y-2">
+              <Label>First Name</Label>
+              <Input required value={form.first_name} onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))} placeholder="John" />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Last Name</label>
-              <input required value={form.last_name} onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))} className="glass-input mt-1 w-full" placeholder="Doe" />
+            <div className="space-y-2">
+              <Label>Last Name</Label>
+              <Input required value={form.last_name} onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))} placeholder="Doe" />
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
-            <input required type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className="glass-input mt-1 w-full" placeholder="user@example.com" />
+          <div className="space-y-2">
+            <Label>Email</Label>
+            <Input required type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="user@example.com" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
-            <select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} className="glass-input mt-1 w-full">
-              <option value="learner">Learner</option>
-              <option value="instructor">Instructor</option>
-              <option value="admin">Admin</option>
-            </select>
+          <div className="space-y-2">
+            <Label>Role</Label>
+            <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v ?? 'learner' }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="learner">Learner</SelectItem>
+                <SelectItem value="instructor">Instructor</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
-              <input required type="password" minLength={8} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} className="glass-input mt-1 w-full" placeholder="Min 8 characters" />
+            <div className="space-y-2">
+              <Label>Password</Label>
+              <Input required type="password" minLength={8} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="Min 8 characters" />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirm Password</label>
-              <input required type="password" minLength={8} value={form.password2} onChange={(e) => setForm((f) => ({ ...f, password2: e.target.value }))} className="glass-input mt-1 w-full" placeholder="Repeat password" />
+            <div className="space-y-2">
+              <Label>Confirm Password</Label>
+              <Input required type="password" minLength={8} value={form.password2} onChange={(e) => setForm((f) => ({ ...f, password2: e.target.value }))} placeholder="Repeat password" />
             </div>
           </div>
-          <div className="flex justify-end gap-3 border-t border-gray-100 pt-4 dark:border-white/10">
-            <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">Cancel</button>
-            <button type="submit" disabled={saving} className="btn-primary">{saving ? 'Creating…' : 'Create User'}</button>
+          <div className="flex justify-end gap-3 border-t pt-4">
+            <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={saving}>{saving ? 'Creating…' : 'Create User'}</Button>
           </div>
         </form>
       </Modal>

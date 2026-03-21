@@ -5,14 +5,30 @@ import Modal from '@/components/Modal';
 import { useToast } from '@/components/Toast';
 import Pagination from '@/components/Pagination';
 import StatsCard from '@/components/StatsCard';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useAdminPage } from '@/app/admin/AdminPageContext';
 import { formatRelativeAgo } from '@/lib/admin-format';
 import { fetchPage } from '@/lib/admin-fetch';
 import { api, mediaUrl } from '@/lib/api';
+import { BookOpen, Clock, Edit, FileEdit, Filter, GraduationCap, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 
-interface CourseRow {
+interface CourseRow extends Record<string, unknown> {
   id: number;
   title: string;
   slug?: string;
@@ -31,6 +47,9 @@ interface CategoryOption {
 }
 
 const PAGE_SIZE = 10;
+
+const LEVEL_FILTER_ANY = '__any__';
+const CATEGORY_NONE = '__none__';
 
 export default function AdminCoursesPage() {
   const { setHeader, search } = useAdminPage();
@@ -198,7 +217,7 @@ export default function AdminCoursesPage() {
     {
       key: 'id',
       header: 'ID',
-      render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">#CR-{r.id}</span>,
+      render: (r) => <span className="font-mono text-muted-foreground">#CR-{r.id}</span>,
     },
     {
       key: 'title',
@@ -207,18 +226,18 @@ export default function AdminCoursesPage() {
         const thumb = mediaUrl((r as { thumbnail?: string | null }).thumbnail);
         return (
           <div className="flex max-w-xs items-start gap-3">
-            <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-md bg-gray-100 dark:bg-white/5">
+            <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
               {thumb ? (
                 <img src={thumb} alt="" className="h-12 w-16 object-cover" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-[10px] text-gray-400 dark:text-gray-500">
+                <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
                   No img
                 </div>
               )}
             </div>
             <div>
-              <p className="font-medium text-gray-900 dark:text-white">{r.title}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Updated {formatRelativeAgo(r.created_at)}</p>
+              <p className="font-medium text-foreground">{r.title}</p>
+              <p className="text-xs text-muted-foreground">Updated {formatRelativeAgo(r.created_at)}</p>
             </div>
           </div>
         );
@@ -229,10 +248,12 @@ export default function AdminCoursesPage() {
       header: 'Instructor',
       render: (r) => (
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/20 text-xs font-medium text-blue-600 dark:bg-blue-400/20 dark:text-blue-400">
-            {(r.instructor_name || '?').slice(0, 2).toUpperCase()}
-          </div>
-          <span className="text-gray-800 dark:text-gray-200">{r.instructor_name || '—'}</span>
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
+              {(r.instructor_name || '?').slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-foreground">{r.instructor_name || '—'}</span>
         </div>
       ),
     },
@@ -241,9 +262,9 @@ export default function AdminCoursesPage() {
       header: 'Category',
       render: (r) =>
         r.category_name ? (
-          <span className="inline-flex rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-800 dark:border-blue-400/20 dark:bg-blue-400/10 dark:text-blue-300">
+          <Badge variant="secondary" className="font-medium">
             {r.category_name}
-          </span>
+          </Badge>
         ) : (
           '—'
         ),
@@ -251,13 +272,13 @@ export default function AdminCoursesPage() {
     {
       key: 'level',
       header: 'Level',
-      render: (r) => <span className="capitalize text-gray-700 dark:text-gray-300">{r.level || '—'}</span>,
+      render: (r) => <span className="capitalize text-foreground">{r.level || '—'}</span>,
     },
     {
       key: 'duration',
       header: 'Duration',
       render: (r) => (
-        <span className="text-gray-700 dark:text-gray-300">
+        <span className="text-foreground">
           {r.duration_minutes != null ? `${r.duration_minutes} min` : '—'}
         </span>
       ),
@@ -267,13 +288,9 @@ export default function AdminCoursesPage() {
       header: 'Status',
       render: (r) =>
         r.status === 'published' ? (
-          <span className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400">
-            Published
-          </span>
+          <Badge>Published</Badge>
         ) : (
-          <span className="inline-flex rounded-full border border-gray-500/20 bg-gray-500/10 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:border-gray-400/10 dark:bg-gray-400/10 dark:text-gray-400">
-            Draft
-          </span>
+          <Badge variant="secondary">Draft</Badge>
         ),
     },
     {
@@ -284,33 +301,20 @@ export default function AdminCoursesPage() {
         <div className="flex items-center gap-1">
           <Link
             href={`/dashboard/instructor/courses/${r.id}/edit`}
-            className="rounded-lg p-1.5 text-gray-400 transition hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10 dark:hover:text-blue-400"
             aria-label="Edit course"
+            className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }))}
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-              />
-            </svg>
+            <Edit className="h-4 w-4" />
           </Link>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={() => setDeleteConfirm(r)}
-            className="rounded-lg p-1.5 text-gray-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
             aria-label="Delete course"
+            className="text-destructive hover:text-destructive"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              />
-            </svg>
-          </button>
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       ),
     },
@@ -321,68 +325,66 @@ export default function AdminCoursesPage() {
   return (
     <div className="space-y-8">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatsCard label="Total Courses" value={statsLoading ? '—' : stats.total} />
-        <StatsCard label="Active Drafts" value={statsLoading ? '—' : stats.drafts} />
-        <StatsCard label="Instructors" value={statsLoading ? '—' : stats.instructors} />
+        <StatsCard label="Total Courses" value={statsLoading ? '—' : stats.total} icon={<BookOpen className="h-5 w-5" />} />
+        <StatsCard label="Active Drafts" value={statsLoading ? '—' : stats.drafts} icon={<FileEdit className="h-5 w-5" />} />
+        <StatsCard label="Instructors" value={statsLoading ? '—' : stats.instructors} icon={<GraduationCap className="h-5 w-5" />} />
         <StatsCard
           label="Avg. Duration"
           value={statsLoading ? '—' : `${Math.round(stats.avgDuration)} min`}
+          icon={<Clock className="h-5 w-5" />}
         />
       </div>
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap gap-2 rounded-xl border border-white/20 bg-white/70 p-1 shadow-lg shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-white/5 dark:shadow-black/20">
+        <div className="inline-flex flex-wrap gap-1 rounded-lg border bg-muted p-1">
           {(['all', 'published', 'draft'] as const).map((t) => (
-            <button
+            <Button
               key={t}
               type="button"
+              variant={tab === t ? 'default' : 'ghost'}
+              size="sm"
               onClick={() => setTab(t)}
-              className={`rounded-md px-4 py-2 text-sm font-medium capitalize transition ${
-                tab === t
-                  ? 'bg-blue-600 text-white shadow-sm dark:bg-blue-500'
-                  : 'text-gray-600 hover:bg-white/50 dark:text-gray-400 dark:hover:bg-white/10'
-              }`}
+              className="capitalize"
             >
               {t === 'all' ? 'All Courses' : t === 'published' ? 'Published' : 'Drafts'}
-            </button>
+            </Button>
           ))}
         </div>
-        <button
-          type="button"
-          onClick={() => setFilterOpen((v) => !v)}
-          className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm font-medium shadow-sm"
-        >
-          + Filter
-        </button>
+        <Button type="button" variant="outline" size="sm" onClick={() => setFilterOpen((v) => !v)} className="gap-2">
+          <Filter className="h-4 w-4" />
+          Filter
+        </Button>
       </div>
       {filterOpen ? (
-        <div className="glass-card flex flex-wrap gap-4 rounded-2xl border border-dashed border-blue-200/50 p-4 dark:border-blue-500/20">
-          <div>
-            <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Category ID
-            </label>
-            <input
-              className="glass-input mt-1 text-sm"
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              placeholder="e.g. 1"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Level
-            </label>
-            <select
-              className="glass-input mt-1 text-sm"
-              value={level}
-              onChange={(e) => setLevel(e.target.value)}
-            >
-              <option value="">Any</option>
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-            </select>
-          </div>
-        </div>
+        <Card className="border-dashed">
+          <CardContent className="flex flex-wrap gap-4 pt-6">
+            <div className="space-y-2">
+              <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Category ID</Label>
+              <Input
+                className="w-[min(100%,12rem)]"
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                placeholder="e.g. 1"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Level</Label>
+              <Select
+                value={level || LEVEL_FILTER_ANY}
+                onValueChange={(v) => setLevel(!v || v === LEVEL_FILTER_ANY ? '' : v)}
+              >
+                <SelectTrigger className="w-[min(100%,12rem)]">
+                  <SelectValue placeholder="Level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={LEVEL_FILTER_ANY}>Any</SelectItem>
+                  <SelectItem value="beginner">Beginner</SelectItem>
+                  <SelectItem value="intermediate">Intermediate</SelectItem>
+                  <SelectItem value="advanced">Advanced</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
       ) : null}
       <DataTable columns={columns} data={rows} loading={loading} emptyMessage="No courses found." />
       <Pagination
@@ -405,73 +407,77 @@ export default function AdminCoursesPage() {
         size="lg"
       >
         <form onSubmit={handleCreateCourse} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Title <span className="text-rose-500">*</span>
-            </label>
-            <input
+          <div className="space-y-2">
+            <Label>
+              Title <span className="text-destructive">*</span>
+            </Label>
+            <Input
               required
               value={courseTitle}
               onChange={(e) => setCourseTitle(e.target.value)}
-              className="glass-input mt-1 w-full"
               placeholder="Course title"
               autoFocus
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Short description</label>
-            <textarea
+          <div className="space-y-2">
+            <Label>Short description</Label>
+            <Textarea
               value={courseShortDescription}
               onChange={(e) => setCourseShortDescription(e.target.value)}
-              className="glass-input mt-1 min-h-[88px] w-full resize-y"
+              className="min-h-[88px] resize-y"
               placeholder="Brief summary for listings"
               rows={3}
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
-              <select
-                value={courseCategoryId}
-                onChange={(e) => setCourseCategoryId(e.target.value)}
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select
+                value={courseCategoryId || CATEGORY_NONE}
+                onValueChange={(v) => setCourseCategoryId(!v || v === CATEGORY_NONE ? '' : v)}
                 disabled={categoriesLoading}
-                className="glass-input mt-1 w-full"
               >
-                <option value="">— None —</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={CATEGORY_NONE}>— None —</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Level</label>
-              <select
-                value={courseLevel}
-                onChange={(e) => setCourseLevel(e.target.value)}
-                className="glass-input mt-1 w-full"
-              >
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-              </select>
+            <div className="space-y-2">
+              <Label>Level</Label>
+              <Select value={courseLevel} onValueChange={(v) => setCourseLevel(v ?? 'beginner')}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="beginner">Beginner</SelectItem>
+                  <SelectItem value="intermediate">Intermediate</SelectItem>
+                  <SelectItem value="advanced">Advanced</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          <div className="flex justify-end gap-3 border-t border-gray-100 pt-4 dark:border-white/10">
-            <button
+          <div className="flex justify-end gap-3 border-t pt-4">
+            <Button
               type="button"
+              variant="outline"
               onClick={() => {
                 setModalOpen(false);
                 resetCreateForm();
               }}
-              className="btn-secondary"
             >
               Cancel
-            </button>
-            <button type="submit" disabled={saving} className="btn-primary">
+            </Button>
+            <Button type="submit" disabled={saving}>
               {saving ? 'Creating…' : 'Create course'}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>
@@ -483,21 +489,17 @@ export default function AdminCoursesPage() {
         subtitle="This action cannot be undone."
         size="sm"
       >
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-muted-foreground">
           Are you sure you want to delete{' '}
-          <strong className="text-gray-900 dark:text-white">{deleteConfirm?.title}</strong>?
+          <strong className="text-foreground">{deleteConfirm?.title}</strong>?
         </p>
         <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={() => setDeleteConfirm(null)} className="btn-secondary">
+          <Button variant="outline" type="button" onClick={() => setDeleteConfirm(null)}>
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => deleteConfirm && handleDeleteCourse(deleteConfirm)}
-            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-rose-500/25 transition-all hover:from-rose-600 hover:to-rose-700"
-          >
+          </Button>
+          <Button variant="destructive" type="button" onClick={() => deleteConfirm && handleDeleteCourse(deleteConfirm)}>
             Delete
-          </button>
+          </Button>
         </div>
       </Modal>
     </div>

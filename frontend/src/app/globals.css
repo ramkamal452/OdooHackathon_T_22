@@ -4,21 +4,74 @@
 
 @layer base {
   :root {
-    --foreground: #111827;
-    --background: #f8fafc;
-    --glass-bg: rgba(255, 255, 255, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.25);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
-    --surface: linear-gradient(135deg, #f8fafc 0%, #ffffff 50%, #eff6ff 100%);
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+    --radius: 0.625rem;
+    --chart-1: 221 83% 53%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 200 70% 50%;
+    --sidebar: 0 0% 98%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 210 40% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 221 83% 53%;
   }
 
   .dark {
-    --foreground: #f3f4f6;
-    --background: #030712;
-    --glass-bg: rgba(255, 255, 255, 0.05);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    --surface: linear-gradient(135deg, #030712 0%, #111827 50%, #0f172a 100%);
+    --background: 224 71% 4%;
+    --foreground: 210 20% 98%;
+    --card: 224 71% 7%;
+    --card-foreground: 210 20% 98%;
+    --popover: 224 71% 7%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 215 28% 17%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 215 28% 17%;
+    --muted-foreground: 217 10% 64%;
+    --accent: 215 28% 17%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 215 28% 17%;
+    --input: 215 28% 17%;
+    --ring: 224 64% 33%;
+    --chart-1: 217 91% 60%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 200 70% 50%;
+    --sidebar: 224 71% 5%;
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 210 20% 98%;
+    --sidebar-accent: 215 28% 17%;
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-border: 215 28% 17%;
+    --sidebar-ring: 224 64% 33%;
   }
 
   html {
@@ -28,72 +81,16 @@
   }
 
   body {
-    color: var(--foreground);
-    background: var(--background);
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
-      'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    @apply bg-background text-foreground;
   }
 
   ::selection {
-    background: rgba(59, 130, 246, 0.2);
+    @apply bg-primary/20;
     color: inherit;
   }
-}
 
-@layer components {
-  .glass {
-    background: var(--glass-bg);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow);
-  }
-
-  .glass-card {
-    background: var(--glass-bg);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow);
-    border-radius: 1rem;
-  }
-
-  .glass-input {
-    @apply rounded-xl border border-gray-200/50 bg-white/50 px-4 py-3 text-sm text-gray-900
-           placeholder:text-gray-400 backdrop-blur-sm transition-all
-           focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20
-           dark:border-white/10 dark:bg-white/5 dark:text-gray-100
-           dark:placeholder:text-gray-500 dark:focus:border-blue-500;
-  }
-
-  .btn-primary {
-    @apply inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-blue-600
-           px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/25
-           transition-all hover:from-blue-600 hover:to-blue-700 hover:shadow-blue-500/40
-           disabled:opacity-50 disabled:shadow-none;
-  }
-
-  .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-xl border border-gray-200/50 bg-white/50
-           px-5 py-2.5 text-sm font-semibold text-gray-700 backdrop-blur-sm transition-all
-           hover:bg-white/70 dark:border-white/10 dark:bg-white/5 dark:text-gray-300
-           dark:hover:bg-white/10;
-  }
-
-  .surface-bg {
-    background: var(--surface);
-  }
-
-  .gradient-orb {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.3;
-    pointer-events: none;
-  }
-
-  .dark .gradient-orb {
-    opacity: 0.15;
+  * {
+    @apply border-border;
   }
 }
 
@@ -101,45 +98,4 @@
   .text-balance {
     text-wrap: balance;
   }
-}
-
-@keyframes modal-enter {
-  from { opacity: 0; transform: scale(0.95) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-@keyframes modal-exit {
-  from { opacity: 1; transform: scale(1) translateY(0); }
-  to { opacity: 0; transform: scale(0.95) translateY(10px); }
-}
-@keyframes backdrop-enter {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes slide-up {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes toast-in {
-  from { opacity: 0; transform: translateX(100%); }
-  to { opacity: 1; transform: translateX(0); }
-}
-@keyframes toast-out {
-  from { opacity: 1; transform: translateX(0); }
-  to { opacity: 0; transform: translateX(100%); }
-}
-
-.animate-modal-enter {
-  animation: modal-enter 0.2s ease-out forwards;
-}
-.animate-backdrop-enter {
-  animation: backdrop-enter 0.2s ease-out forwards;
-}
-.animate-slide-up {
-  animation: slide-up 0.3s ease-out forwards;
-}
-.animate-toast-in {
-  animation: toast-in 0.3s ease-out forwards;
-}
-.animate-toast-out {
-  animation: toast-out 0.2s ease-in forwards;
 }

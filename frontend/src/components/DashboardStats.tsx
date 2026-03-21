@@ -1,33 +1,36 @@
-interface StatItem {
+'use client';
+
+import { Card, CardContent } from '@/components/ui/card';
+
+interface Stat {
   label: string;
   value: string | number;
   icon?: React.ReactNode;
+  trend?: string;
 }
 
 interface DashboardStatsProps {
-  stats: StatItem[];
+  stats: Stat[];
 }
 
 export default function DashboardStats({ stats }: DashboardStatsProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {stats.map((s) => (
-        <div
-          key={s.label}
-          className="rounded-2xl border border-white/20 bg-white/70 px-5 py-5 shadow-lg shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-white/5 dark:shadow-black/20"
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                {s.label}
-              </p>
-              <p className="mt-2 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{s.value}</p>
-            </div>
+        <Card key={s.label}>
+          <CardContent className="flex items-center gap-4 p-6">
             {s.icon && (
-              <div className="rounded-lg bg-white/50 p-2 text-blue-500 dark:bg-white/10 dark:text-blue-400">{s.icon}</div>
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                {s.icon}
+              </div>
             )}
-          </div>
-        </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-muted-foreground">{s.label}</p>
+              <p className="text-2xl font-bold tabular-nums">{s.value}</p>
+              {s.trend && <p className="text-xs text-muted-foreground">{s.trend}</p>}
+            </div>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );

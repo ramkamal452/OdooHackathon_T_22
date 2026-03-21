@@ -2,8 +2,32 @@
 
 import { useAuth } from '@/lib/auth';
 import { useTheme } from '@/components/ThemeProvider';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
+import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
+import {
+  BookOpen,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Moon,
+  Settings,
+  Shield,
+  Sun,
+} from 'lucide-react';
+import { useState } from 'react';
 
 function userInitials(first?: string, last?: string, email?: string) {
   const f = first?.trim();
@@ -14,110 +38,193 @@ function userInitials(first?: string, last?: string, email?: string) {
   return '?';
 }
 
+const navLinks = [
+  { href: '/courses', label: 'Courses', icon: BookOpen },
+];
+
 export default function Navbar() {
   const { user, loading, logout } = useAuth();
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const isActive = (href: string) =>
+    pathname === href || pathname?.startsWith(href + '/');
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/20 dark:border-white/5 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-8">
-          <Link href="/" className="text-xl font-bold tracking-tight text-blue-600 dark:text-blue-400">
-            Learnova
+    <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
+      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-6">
+          <Link href="/" className="flex items-center gap-2">
+            <Image src="/logo/logo.png" alt="Learnova" width={40} height={40} className="h-10 w-10 rounded-lg object-contain" />
+            <span className="text-lg font-bold tracking-tight">Learnova</span>
           </Link>
-          <Link
-            href="/courses"
-            className={`text-sm font-medium transition ${
-              pathname === '/courses'
-                ? 'text-blue-600 dark:text-blue-400'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            Courses
-          </Link>
+
+          <div className="hidden items-center gap-1 md:flex">
+            {navLinks.map((link) => (
+              <Button
+                key={link.href}
+                variant={isActive(link.href) ? 'secondary' : 'ghost'}
+                size="sm"
+                asChild
+              >
+                <Link href={link.href}>
+                  <link.icon className="mr-1.5 h-4 w-4" />
+                  {link.label}
+                </Link>
+              </Button>
+            ))}
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={toggleTheme}
-            className="rounded-full p-2 text-gray-500 transition hover:bg-white/50 dark:hover:bg-white/10 dark:text-gray-400"
             aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           >
-            {theme === 'dark' ? (
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-                />
-              </svg>
-            ) : (
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-                />
-              </svg>
-            )}
-          </button>
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
+
           {loading ? (
-            <span className="text-sm text-gray-400 dark:text-gray-500">…</span>
+            <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
           ) : user ? (
             <>
-              <Link
-                href="/dashboard"
-                className={`text-sm font-medium ${
-                  pathname?.startsWith('/dashboard')
-                    ? 'text-blue-600 dark:text-blue-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                }`}
-              >
-                Dashboard
-              </Link>
-              {user.role === 'admin' && (
-                <Link
-                  href="/admin"
-                  className={`text-sm font-medium ${
-                    pathname?.startsWith('/admin')
-                      ? 'text-blue-600 dark:text-blue-400'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
+              <div className="hidden items-center gap-1 md:flex">
+                <Button
+                  variant={isActive('/dashboard') ? 'secondary' : 'ghost'}
+                  size="sm"
+                  asChild
                 >
-                  Admin
-                </Link>
-              )}
-              <div className="flex items-center gap-2">
-                <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-500/20 dark:bg-blue-400/20 text-xs font-semibold text-blue-600 dark:text-blue-400"
-                  aria-hidden
-                >
-                  {userInitials(user.first_name, user.last_name, user.email)}
-                </span>
-                <span className="hidden max-w-[10rem] truncate text-sm text-gray-900 dark:text-white sm:inline">
-                  {user.first_name || user.email}
-                </span>
+                  <Link href="/dashboard">
+                    <LayoutDashboard className="mr-1.5 h-4 w-4" />
+                    Dashboard
+                  </Link>
+                </Button>
+                {user.role === 'admin' && (
+                  <Button
+                    variant={isActive('/admin') ? 'secondary' : 'ghost'}
+                    size="sm"
+                    asChild
+                  >
+                    <Link href="/admin">
+                      <Shield className="mr-1.5 h-4 w-4" />
+                      Admin
+                    </Link>
+                  </Button>
+                )}
               </div>
-              <button type="button" onClick={() => logout()} className="btn-primary">
-                Logout
-              </button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+                        {userInitials(user.first_name, user.last_name, user.email)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    <p className="font-medium">{user.first_name || user.email}</p>
+                    <p className="text-xs font-normal text-muted-foreground">{user.email}</p>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard">
+                      <LayoutDashboard className="mr-2 h-4 w-4" />
+                      Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  {user.role === 'admin' && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin">
+                        <Shield className="mr-2 h-4 w-4" />
+                        Admin Panel
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => logout()} className="text-destructive focus:text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           ) : (
-            <>
-              <Link
-                href="/login"
-                className="text-sm font-semibold text-blue-600 transition hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-              >
-                Login
-              </Link>
-              <Link href="/register" className="btn-primary">
-                Register
-              </Link>
-            </>
+            <div className="hidden items-center gap-2 md:flex">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/login">Sign in</Link>
+              </Button>
+              <Button size="sm" asChild>
+                <Link href="/register">Get Started</Link>
+              </Button>
+            </div>
           )}
+
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-72">
+              <SheetTitle className="sr-only">Navigation</SheetTitle>
+              <div className="flex flex-col gap-4 pt-4">
+                <Link href="/" className="flex items-center gap-2" onClick={() => setMobileOpen(false)}>
+                  <Image src="/logo/logo.png" alt="Learnova" width={40} height={40} className="h-10 w-10 rounded-lg object-contain" />
+                  <span className="text-lg font-bold">Learnova</span>
+                </Link>
+                <Separator />
+                {navLinks.map((link) => (
+                  <Button key={link.href} variant="ghost" className="justify-start" asChild>
+                    <Link href={link.href} onClick={() => setMobileOpen(false)}>
+                      <link.icon className="mr-2 h-4 w-4" />
+                      {link.label}
+                    </Link>
+                  </Button>
+                ))}
+                {user && (
+                  <>
+                    <Button variant="ghost" className="justify-start" asChild>
+                      <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
+                        <LayoutDashboard className="mr-2 h-4 w-4" />
+                        Dashboard
+                      </Link>
+                    </Button>
+                    {user.role === 'admin' && (
+                      <Button variant="ghost" className="justify-start" asChild>
+                        <Link href="/admin" onClick={() => setMobileOpen(false)}>
+                          <Shield className="mr-2 h-4 w-4" />
+                          Admin
+                        </Link>
+                      </Button>
+                    )}
+                  </>
+                )}
+                <Separator />
+                {!user && !loading && (
+                  <div className="flex flex-col gap-2">
+                    <Button variant="outline" asChild>
+                      <Link href="/login" onClick={() => setMobileOpen(false)}>Sign in</Link>
+                    </Button>
+                    <Button asChild>
+                      <Link href="/register" onClick={() => setMobileOpen(false)}>Get Started</Link>
+                    </Button>
+                  </div>
+                )}
+                {user && (
+                  <Button variant="destructive" onClick={() => { logout(); setMobileOpen(false); }}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </Button>
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </nav>
     </header>

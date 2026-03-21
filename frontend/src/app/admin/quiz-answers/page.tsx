@@ -3,9 +3,21 @@
 import DataTable, { type Column } from '@/components/DataTable';
 import Pagination from '@/components/Pagination';
 import StatsCard from '@/components/StatsCard';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useAdminPage } from '@/app/admin/AdminPageContext';
 import { fetchPage } from '@/lib/admin-fetch';
 import { api } from '@/lib/api';
+import { Check, MoreVertical, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 interface AnswerRow {
@@ -18,14 +30,7 @@ interface AnswerRow {
 }
 
 const PAGE_SIZE = 10;
-
-function DotsIcon() {
-  return (
-    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
-    </svg>
-  );
-}
+const ALL_ATTEMPTS = '__all__';
 
 export default function AdminQuizAnswersPage() {
   const { setHeader, search } = useAdminPage();
@@ -111,15 +116,15 @@ export default function AdminQuizAnswersPage() {
       {
         key: 'id',
         header: 'ID',
-        render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">ANS-{r.id}</span>,
+        render: (r) => <span className="font-mono text-muted-foreground">ANS-{r.id}</span>,
       },
       {
         key: 'attempt',
         header: 'Attempt ID',
         render: (r) => (
-          <span className="inline-flex rounded-md border border-white/20 bg-white/50 px-2 py-0.5 font-mono text-xs text-gray-800 dark:border-white/10 dark:bg-white/10 dark:text-gray-200">
+          <Badge variant="outline" className="font-mono text-xs">
             ATT-{r.attempt_id}
-          </span>
+          </Badge>
         ),
       },
       {
@@ -127,34 +132,33 @@ export default function AdminQuizAnswersPage() {
         header: 'Question',
         render: (r) => (
           <div>
-            <p className="max-w-sm truncate text-gray-900 dark:text-white">{r.question_text_preview}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Course assessment</p>
+            <p className="max-w-sm truncate text-foreground">{r.question_text_preview}</p>
+            <p className="text-xs text-muted-foreground">Course assessment</p>
           </div>
         ),
       },
       {
         key: 'selected',
         header: 'Selected Option',
-        render: (r) => <span className="text-gray-800 dark:text-gray-200">{r.selected_option_text}</span>,
+        render: (r) => <span className="text-foreground">{r.selected_option_text}</span>,
       },
       {
         key: 'correct',
         header: 'Correct',
         render: (r) =>
           r.is_correct ? (
-            <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400">
-              <svg className="mr-1 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+            <Badge
+              variant="outline"
+              className="gap-0.5 border-emerald-500/20 bg-emerald-500/10 font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-400"
+            >
+              <Check className="size-3.5" />
               YES
-            </span>
+            </Badge>
           ) : (
-            <span className="inline-flex items-center rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-0.5 text-xs font-bold text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-400">
-              <svg className="mr-1 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+            <Badge variant="destructive" className="gap-0.5 font-bold">
+              <X className="size-3.5" />
               NO
-            </span>
+            </Badge>
           ),
       },
       {
@@ -170,9 +174,9 @@ export default function AdminQuizAnswersPage() {
         key: 'actions',
         header: 'Actions',
         render: () => (
-          <button type="button" className="rounded p-1 text-gray-400 hover:bg-white/10 dark:hover:text-gray-300" aria-label="More">
-            <DotsIcon />
-          </button>
+          <Button type="button" variant="ghost" size="icon" className="text-muted-foreground" aria-label="More">
+            <MoreVertical className="size-5" />
+          </Button>
         ),
       },
     ],
@@ -228,92 +232,90 @@ export default function AdminQuizAnswersPage() {
       </div>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-end gap-4">
-          <div>
-            <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Attempt</label>
-            <select
-              className="glass-input mt-1 max-w-xs text-sm"
-              value={attemptId}
-              onChange={(e) => {
-                setAttemptId(e.target.value);
+          <div className="space-y-2">
+            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Attempt</Label>
+            <Select
+              value={attemptId || ALL_ATTEMPTS}
+              onValueChange={(v) => {
+                const s = v ?? '';
+                setAttemptId(s === ALL_ATTEMPTS ? '' : s);
                 setPage(1);
               }}
             >
-              <option value="">All</option>
-              {attempts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="mt-1 w-full min-w-[200px] max-w-xs">
+                <SelectValue placeholder="All attempts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_ATTEMPTS}>All</SelectItem>
+                {attempts.map((a) => (
+                  <SelectItem key={a.id} value={String(a.id)}>
+                    {a.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div>
-            <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</label>
-            <select
-              className="glass-input mt-1 text-sm"
-              defaultValue=""
-              disabled
-              title="Requires API filter for is_correct"
-            >
-              <option value="">All</option>
-              <option value="correct">Correct</option>
-              <option value="incorrect">Incorrect</option>
-            </select>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</Label>
+            <Select disabled value="all">
+              <SelectTrigger className="mt-1 w-[160px]" title="Requires API filter for is_correct">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="correct">Correct</SelectItem>
+                <SelectItem value="incorrect">Incorrect</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <button
-            type="button"
-            className="rounded-lg border border-dashed border-gray-300/80 px-4 py-2 text-sm text-gray-600 dark:border-white/20 dark:text-gray-400"
-          >
+          <Button type="button" variant="outline" className="border-dashed">
             More Filters
-          </button>
-          <button
-            type="button"
-            onClick={exportCsv}
-            className="btn-secondary px-4 py-2 text-sm font-medium text-gray-800 shadow-sm dark:text-gray-200"
-          >
+          </Button>
+          <Button type="button" variant="secondary" onClick={exportCsv}>
             Export CSV
-          </button>
+          </Button>
         </div>
-        <div className="flex rounded-xl border border-white/20 bg-white/70 p-1 shadow-lg shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-white/5 dark:shadow-black/20">
-          <button
+        <div className="inline-flex gap-1 rounded-lg border border-border bg-muted/50 p-1">
+          <Button
             type="button"
+            variant={view === 'table' ? 'default' : 'ghost'}
+            size="sm"
             onClick={() => setView('table')}
-            className={`rounded-md px-4 py-2 text-sm font-medium ${
-              view === 'table' ? 'bg-blue-600 text-white dark:bg-blue-500' : 'text-gray-600 hover:bg-white/50 dark:text-gray-400 dark:hover:bg-white/10'
-            }`}
           >
             Table View
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant={view === 'analytics' ? 'default' : 'ghost'}
+            size="sm"
             onClick={() => setView('analytics')}
-            className={`rounded-md px-4 py-2 text-sm font-medium ${
-              view === 'analytics' ? 'bg-blue-600 text-white dark:bg-blue-500' : 'text-gray-600 hover:bg-white/50 dark:text-gray-400 dark:hover:bg-white/10'
-            }`}
           >
             Analytics
-          </button>
+          </Button>
         </div>
       </div>
       {view === 'analytics' ? (
-        <div className="glass-card rounded-2xl border border-dashed border-blue-200/50 p-8 dark:border-blue-500/20">
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Response mix (current page)</p>
-          <div className="mt-6 flex h-40 items-end gap-8">
-            <div className="flex flex-col items-center gap-2">
-              <div
-                className="w-16 rounded-t bg-emerald-500 dark:bg-emerald-400"
-                style={{ height: `${Math.max(8, (correctN / Math.max(1, correctN + wrongN)) * 160)}px` }}
-              />
-              <span className="text-xs text-gray-600 dark:text-gray-400">Correct ({correctN})</span>
+        <Card className="border-dashed border-primary/30">
+          <CardContent className="p-8">
+            <p className="text-sm font-medium text-foreground">Response mix (current page)</p>
+            <div className="mt-6 flex h-40 items-end gap-8">
+              <div className="flex flex-col items-center gap-2">
+                <div
+                  className="w-16 rounded-t bg-emerald-500 dark:bg-emerald-400"
+                  style={{ height: `${Math.max(8, (correctN / Math.max(1, correctN + wrongN)) * 160)}px` }}
+                />
+                <span className="text-xs text-muted-foreground">Correct ({correctN})</span>
+              </div>
+              <div className="flex flex-col items-center gap-2">
+                <div
+                  className="w-16 rounded-t bg-destructive"
+                  style={{ height: `${Math.max(8, (wrongN / Math.max(1, correctN + wrongN)) * 160)}px` }}
+                />
+                <span className="text-xs text-muted-foreground">Incorrect ({wrongN})</span>
+              </div>
             </div>
-            <div className="flex flex-col items-center gap-2">
-              <div
-                className="w-16 rounded-t bg-rose-400 dark:bg-rose-500"
-                style={{ height: `${Math.max(8, (wrongN / Math.max(1, correctN + wrongN)) * 160)}px` }}
-              />
-              <span className="text-xs text-gray-600 dark:text-gray-400">Incorrect ({wrongN})</span>
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       ) : (
         <>
           <DataTable columns={columns} data={rows} loading={loading} emptyMessage="No answers found." />

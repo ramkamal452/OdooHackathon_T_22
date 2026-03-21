@@ -5,9 +5,14 @@ import Modal from '@/components/Modal';
 import { useToast } from '@/components/Toast';
 import Pagination from '@/components/Pagination';
 import StatsCard from '@/components/StatsCard';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { useAdminPage } from '@/app/admin/AdminPageContext';
 import { formatRelativeAgo } from '@/lib/admin-format';
 import { api, unwrapList } from '@/lib/api';
+import { Edit, FolderOpen, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 interface CategoryRow {
@@ -40,11 +45,7 @@ export default function AdminCategoriesPage() {
       subtitle: 'Organize courses into categories.',
       searchPlaceholder: 'Search categories…',
       primaryActionLabel: '+ New Category',
-      onPrimaryAction: () => {
-        setEditingId(null);
-        setCatName('');
-        setModalOpen(true);
-      },
+      onPrimaryAction: () => { setEditingId(null); setCatName(''); setModalOpen(true); },
     });
   }, [setHeader]);
 
@@ -63,28 +64,17 @@ export default function AdminCategoriesPage() {
         setRows(arr);
         setTotal(arr.length);
       }
-    } catch {
-      toast('Failed to load categories', 'error');
-    } finally {
-      setLoading(false);
-    }
+    } catch { toast('Failed to load categories', 'error'); }
+    finally { setLoading(false); }
   }, [page, search, toast]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [search]);
-
-  useEffect(() => {
-    loadTable();
-  }, [loadTable]);
+  useEffect(() => { setPage(1); }, [search]);
+  useEffect(() => { loadTable(); }, [loadTable]);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const name = catName.trim();
-    if (!name) {
-      toast('Name is required', 'error');
-      return;
-    }
+    if (!name) { toast('Name is required', 'error'); return; }
     setSaving(true);
     try {
       if (editingId) {
@@ -98,11 +88,8 @@ export default function AdminCategoriesPage() {
       setCatName('');
       setEditingId(null);
       loadTable();
-    } catch {
-      toast(editingId ? 'Failed to update category' : 'Failed to create category', 'error');
-    } finally {
-      setSaving(false);
-    }
+    } catch { toast(editingId ? 'Failed to update category' : 'Failed to create category', 'error'); }
+    finally { setSaving(false); }
   }
 
   async function handleDelete(row: CategoryRow) {
@@ -111,9 +98,7 @@ export default function AdminCategoriesPage() {
       toast('Category deleted!', 'success');
       setDeleteConfirm(null);
       loadTable();
-    } catch {
-      toast('Failed to delete category', 'error');
-    }
+    } catch { toast('Failed to delete category', 'error'); }
   }
 
   function startEdit(row: CategoryRow) {
@@ -126,37 +111,27 @@ export default function AdminCategoriesPage() {
     {
       key: 'id',
       header: 'ID',
-      render: (r) => <span className="font-mono text-gray-500 dark:text-gray-400">#CAT-{r.id}</span>,
+      render: (r) => <span className="font-mono text-muted-foreground">#CAT-{r.id}</span>,
     },
     {
       key: 'name',
       header: 'Name',
-      render: (r) => (
-        <span className="font-medium text-gray-900 dark:text-white">{r.name}</span>
-      ),
+      render: (r) => <span className="font-medium">{r.name}</span>,
     },
     {
       key: 'slug',
       header: 'Slug',
-      render: (r) => (
-        <span className="rounded bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-600 dark:bg-white/5 dark:text-gray-400">
-          {r.slug}
-        </span>
-      ),
+      render: (r) => <Badge variant="secondary" className="font-mono text-xs">{r.slug}</Badge>,
     },
     {
       key: 'courses',
       header: 'Courses',
-      render: (r) => (
-        <span className="text-gray-700 dark:text-gray-300">{r.course_count ?? '—'}</span>
-      ),
+      render: (r) => <span className="tabular-nums">{r.course_count ?? '—'}</span>,
     },
     {
       key: 'created',
       header: 'Created',
-      render: (r) => (
-        <span className="text-gray-500 dark:text-gray-400">{formatRelativeAgo(r.created_at)}</span>
-      ),
+      render: (r) => <span className="text-muted-foreground">{formatRelativeAgo(r.created_at)}</span>,
     },
     {
       key: 'actions',
@@ -164,36 +139,12 @@ export default function AdminCategoriesPage() {
       className: 'w-28',
       render: (r) => (
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => startEdit(r)}
-            className="rounded-lg p-1.5 text-gray-400 transition hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10 dark:hover:text-blue-400"
-            aria-label="Edit category"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
-            onClick={() => setDeleteConfirm(r)}
-            className="rounded-lg p-1.5 text-gray-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
-            aria-label="Delete category"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              />
-            </svg>
-          </button>
+          <Button variant="ghost" size="icon-sm" onClick={() => startEdit(r)} aria-label="Edit">
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon-sm" onClick={() => setDeleteConfirm(r)} aria-label="Delete" className="text-destructive hover:text-destructive">
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       ),
     },
@@ -204,85 +155,32 @@ export default function AdminCategoriesPage() {
   return (
     <div className="space-y-8">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <StatsCard label="Total Categories" value={loading ? '—' : total} />
+        <StatsCard label="Total Categories" value={loading ? '—' : total} icon={<FolderOpen className="h-5 w-5" />} />
       </div>
 
       <DataTable columns={columns} data={rows} loading={loading} emptyMessage="No categories found." />
-      <Pagination
-        currentPage={page}
-        totalPages={totalPages}
-        totalItems={total}
-        pageSize={PAGE_SIZE}
-        onPageChange={setPage}
-        itemName="categories"
-      />
+      <Pagination currentPage={page} totalPages={totalPages} totalItems={total} pageSize={PAGE_SIZE} onPageChange={setPage} itemName="categories" />
 
-      <Modal
-        open={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setCatName('');
-          setEditingId(null);
-        }}
-        title={editingId ? 'Edit Category' : 'New Category'}
-        subtitle={editingId ? 'Update the category name.' : 'Create a new category for organizing courses.'}
-        size="sm"
-      >
+      <Modal open={modalOpen} onClose={() => { setModalOpen(false); setCatName(''); setEditingId(null); }} title={editingId ? 'Edit Category' : 'New Category'} subtitle={editingId ? 'Update the category name.' : 'Create a new category for organizing courses.'} size="sm">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Name <span className="text-rose-500">*</span>
-            </label>
-            <input
-              required
-              value={catName}
-              onChange={(e) => setCatName(e.target.value)}
-              className="glass-input mt-1 w-full"
-              placeholder="e.g. Programming"
-              autoFocus
-            />
+          <div className="space-y-2">
+            <Label>Name <span className="text-destructive">*</span></Label>
+            <Input required value={catName} onChange={(e) => setCatName(e.target.value)} placeholder="e.g. Programming" autoFocus />
           </div>
-          <div className="flex justify-end gap-3 border-t border-gray-100 pt-4 dark:border-white/10">
-            <button
-              type="button"
-              onClick={() => {
-                setModalOpen(false);
-                setCatName('');
-                setEditingId(null);
-              }}
-              className="btn-secondary"
-            >
-              Cancel
-            </button>
-            <button type="submit" disabled={saving} className="btn-primary">
-              {saving ? 'Saving…' : editingId ? 'Update' : 'Create'}
-            </button>
+          <div className="flex justify-end gap-3 border-t pt-4">
+            <Button type="button" variant="outline" onClick={() => { setModalOpen(false); setCatName(''); setEditingId(null); }}>Cancel</Button>
+            <Button type="submit" disabled={saving}>{saving ? 'Saving…' : editingId ? 'Update' : 'Create'}</Button>
           </div>
         </form>
       </Modal>
 
-      <Modal
-        open={!!deleteConfirm}
-        onClose={() => setDeleteConfirm(null)}
-        title="Delete category"
-        subtitle="This action cannot be undone."
-        size="sm"
-      >
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Are you sure you want to delete{' '}
-          <strong className="text-gray-900 dark:text-white">{deleteConfirm?.name}</strong>?
+      <Modal open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} title="Delete category" subtitle="This action cannot be undone." size="sm">
+        <p className="text-sm text-muted-foreground">
+          Are you sure you want to delete <strong className="text-foreground">{deleteConfirm?.name}</strong>?
         </p>
         <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={() => setDeleteConfirm(null)} className="btn-secondary">
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
-            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-rose-500/25 transition-all hover:from-rose-600 hover:to-rose-700"
-          >
-            Delete
-          </button>
+          <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+          <Button variant="destructive" onClick={() => deleteConfirm && handleDelete(deleteConfirm)}>Delete</Button>
         </div>
       </Modal>
     </div>
