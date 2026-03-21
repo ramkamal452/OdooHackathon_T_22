@@ -27,6 +27,11 @@ logs/
 dist/
 build/
 *.egg-info/
+.next/
+out/
+staticfiles/
+
+
 
 # Uploads
 uploads/

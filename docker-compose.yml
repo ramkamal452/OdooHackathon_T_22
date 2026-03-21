@@ -8,7 +8,7 @@ services:
     env_file:
       - .env
     ports:
-      - "${MYSQL_PORT:-3306}:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -22,7 +22,7 @@ services:
     container_name: learnova-redis
     restart: unless-stopped
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -30,6 +30,38 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  backend:
+    build: ./backend
+    container_name: learnova-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    entrypoint: ["sh", "-c", "sed -i 's/\\r$//' /app/entrypoint.sh && sh /app/entrypoint.sh"]
+
+  frontend:
+    build: ./frontend
+    container_name: learnova-frontend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
 
 volumes:
   mysql_data:
