@@ -37,8 +37,21 @@ export default function RegisterPage() {
         role: form.role,
       });
       router.replace('/dashboard');
-    } catch {
-      setError('Could not create account. Check your details and try again.');
+    } catch (err: unknown) {
+      let msg = 'Could not create account. Check your details and try again.';
+      if (err && typeof err === 'object' && 'response' in err) {
+        const resp = (err as { response?: { data?: Record<string, unknown> } }).response;
+        if (resp?.data) {
+          const d = resp.data;
+          const parts: string[] = [];
+          for (const [key, val] of Object.entries(d)) {
+            const text = Array.isArray(val) ? val.join(' ') : String(val);
+            parts.push(key === 'non_field_errors' ? text : `${key}: ${text}`);
+          }
+          if (parts.length) msg = parts.join(' | ');
+        }
+      }
+      setError(msg);
     } finally {
       setPending(false);
     }

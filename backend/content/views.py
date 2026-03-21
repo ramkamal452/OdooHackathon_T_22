@@ -472,57 +472,12 @@ class LessonListCreateView(APIView):
         course = _find_course_for_child(mod)
         if course and not can_manage_entity(request.user, course):
             raise PermissionDenied()
-        data = request.data
-        title = data.get('title', '').strip()
-        content_type = data.get('content_type', 'video')
-        if not title:
-            return Response({'title': ['This field is required.']}, status=status.HTTP_400_BAD_REQUEST)
 
-        if content_type == 'video':
-            etype = EntityType.VIDEO
-        elif content_type == 'image':
-            etype = EntityType.RESOURCE
-        else:
-            etype = EntityType.RESOURCE
+        entity, result = _create_lesson_entity(request.data, request.FILES, request.user, mod)
+        if entity is None:
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
-        dur = data.get('duration_minutes')
-        entity = ContentEntity.objects.create(
-            entity_type=etype,
-            title=title,
-            owner=request.user,
-            status_code=StatusCode.PUBLISHED,
-            estimated_duration_seconds=(int(dur) * 60) if dur else None,
-        )
-
-        if etype == EntityType.VIDEO:
-            VideoContent.objects.create(
-                entity=entity,
-                video_url=data.get('video_url', ''),
-                allow_download=data.get('allow_download', False),
-                duration_seconds=(int(dur) * 60) if dur else 0,
-            )
-        else:
-            rk = ResourceKind.IMAGE if content_type == 'image' else ResourceKind.PDF
-            ResourceContent.objects.create(
-                entity=entity,
-                resource_url=data.get('resource_url', ''),
-                resource_kind=rk,
-                allow_download=data.get('allow_download', False),
-            )
-
-        if data.get('content_body'):
-            from .models import LessonContent
-            LessonContent.objects.create(entity=entity, body=data['content_body'])
-
-        max_order = ContentStructure.objects.filter(parent_entity=mod).count()
-        link = ContentStructure.objects.create(
-            parent_entity=mod,
-            child_entity=entity,
-            sort_order=data.get('sort_order', max_order),
-            is_preview=data.get('is_preview', False),
-        )
-
-        ld = LessonSerializer.from_entity(entity, link, request)
+        ld = LessonSerializer.from_entity(entity, result, request)
         ld['module'] = mod.id
         return Response(ld, status=status.HTTP_201_CREATED)
 
@@ -563,9 +518,14 @@ class LessonDetailView(APIView):
                 pass
         entity.save()
 
+        file_obj = request.FILES.get('file')
+
         if entity.entity_type == EntityType.VIDEO:
             vd, _ = VideoContent.objects.get_or_create(entity=entity)
-            if 'video_url' in data:
+            if file_obj:
+                asset = _create_file_asset(file_obj, request.user)
+                vd.video_url = asset.url
+            elif 'video_url' in data:
                 vd.video_url = data['video_url']
             if 'allow_download' in data:
                 vd.allow_download = data['allow_download']
@@ -577,7 +537,11 @@ class LessonDetailView(APIView):
             vd.save()
         elif entity.entity_type == EntityType.RESOURCE:
             rd, _ = ResourceContent.objects.get_or_create(entity=entity)
-            if 'resource_url' in data:
+            if file_obj:
+                asset = _create_file_asset(file_obj, request.user)
+                rd.resource_url = asset.url
+                rd.asset = asset
+            elif 'resource_url' in data:
                 rd.resource_url = data['resource_url']
             if 'allow_download' in data:
                 rd.allow_download = data['allow_download']
@@ -872,3 +836,322 @@ def _content_type_label(entity):
 
 def _create_file_asset(file_obj, user):
     return Asset.upload_file(file_obj, user=user)
+
+
+def _parse_bool(val, default=False):
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return val.lower() in ('true', '1', 'yes', 'on')
+    return default
+
+
+def _entity_type_for_content(content_type):
+    if content_type == 'video':
+        return EntityType.VIDEO
+    return EntityType.RESOURCE
+
+
+def _resource_kind_for_content(content_type):
+    if content_type == 'image':
+        return ResourceKind.IMAGE
+    if content_type == 'pdf':
+        return ResourceKind.PDF
+    return ResourceKind.ATTACHMENT
+
+
+def _create_lesson_entity(data, files, user, parent_entity):
+    title = data.get('title', '').strip()
+    content_type = data.get('content_type', 'text')
+    if not title:
+        return None, {'title': ['This field is required.']}
+
+    etype = _entity_type_for_content(content_type)
+    dur = data.get('duration_minutes')
+
+    entity = ContentEntity.objects.create(
+        entity_type=etype,
+        title=title,
+        owner=user,
+        status_code=StatusCode.PUBLISHED,
+        estimated_duration_seconds=(int(dur) * 60) if dur else None,
+    )
+
+    file_obj = files.get('file') if files else None
+
+    if etype == EntityType.VIDEO:
+        video_url = data.get('video_url', '')
+        if file_obj:
+            asset = _create_file_asset(file_obj, user)
+            video_url = asset.url
+        VideoContent.objects.create(
+            entity=entity,
+            video_url=video_url,
+            allow_download=_parse_bool(data.get('allow_download', False)),
+            duration_seconds=(int(dur) * 60) if dur else 0,
+        )
+    else:
+        rk = _resource_kind_for_content(content_type)
+        resource_url = data.get('resource_url', '')
+        asset_fk = None
+        if file_obj:
+            asset = _create_file_asset(file_obj, user)
+            resource_url = asset.url
+            asset_fk = asset
+        ResourceContent.objects.create(
+            entity=entity,
+            resource_url=resource_url,
+            resource_kind=rk,
+            allow_download=_parse_bool(data.get('allow_download', False)),
+            asset=asset_fk,
+        )
+
+    if data.get('content_body'):
+        from .models import LessonContent
+        LessonContent.objects.create(entity=entity, body=data['content_body'])
+
+    max_order = ContentStructure.objects.filter(parent_entity=parent_entity).count()
+    link = ContentStructure.objects.create(
+        parent_entity=parent_entity,
+        child_entity=entity,
+        sort_order=data.get('sort_order', max_order),
+        is_preview=_parse_bool(data.get('is_preview', False)),
+    )
+    return entity, link
+
+
+# ---------------------------------------------------------------------------
+# Course-level lesson views (direct children of course, not under a module)
+# ---------------------------------------------------------------------------
+
+class CourseLessonListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, course_id):
+        course = get_object_or_404(ContentEntity, pk=course_id, entity_type=EntityType.COURSE)
+        if not can_view_entity(request.user, course):
+            raise NotFound()
+        non_module_types = [EntityType.VIDEO, EntityType.RESOURCE, EntityType.ARTICLE, EntityType.LESSON]
+        links = ContentStructure.objects.filter(
+            parent_entity=course,
+            child_entity__entity_type__in=non_module_types,
+        ).select_related('child_entity').order_by('sort_order')
+        data = []
+        for link in links:
+            ld = LessonSerializer.from_entity(link.child_entity, link, request)
+            ld['module'] = None
+            data.append(ld)
+        return Response(data)
+
+    def post(self, request, course_id):
+        course = get_object_or_404(ContentEntity, pk=course_id, entity_type=EntityType.COURSE)
+        if not can_manage_entity(request.user, course):
+            raise PermissionDenied()
+
+        entity, result = _create_lesson_entity(request.data, request.FILES, request.user, course)
+        if entity is None:
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        ld = LessonSerializer.from_entity(entity, result, request)
+        ld['module'] = None
+        return Response(ld, status=status.HTTP_201_CREATED)
+
+
+# ---------------------------------------------------------------------------
+# Lesson attachment views
+# ---------------------------------------------------------------------------
+
+class LessonAttachmentListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, lesson_id):
+        entity = get_object_or_404(ContentEntity, pk=lesson_id)
+        course = _find_course_for_child(entity)
+        if course and not can_view_entity(request.user, course):
+            raise NotFound()
+        from .serializers import ContentAttachmentSerializer
+        attachments = ContentAttachment.objects.filter(entity=entity).order_by('sort_order')
+        return Response(ContentAttachmentSerializer(attachments, many=True).data)
+
+    def post(self, request, lesson_id):
+        entity = get_object_or_404(ContentEntity, pk=lesson_id)
+        course = _find_course_for_child(entity)
+        if course and not can_manage_entity(request.user, course):
+            raise PermissionDenied()
+
+        file_obj = request.FILES.get('file')
+        title = request.data.get('title', '')
+        external_url = request.data.get('external_url', '')
+
+        if not file_obj and not external_url:
+            return Response({'file': ['A file or external URL is required.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        asset = None
+        if file_obj:
+            asset = _create_file_asset(file_obj, request.user)
+            if not title:
+                title = file_obj.name
+
+        max_order = ContentAttachment.objects.filter(entity=entity).count()
+        attachment = ContentAttachment.objects.create(
+            entity=entity,
+            title=title or 'Attachment',
+            asset=asset,
+            external_url=external_url,
+            sort_order=request.data.get('sort_order', max_order),
+        )
+
+        from .serializers import ContentAttachmentSerializer
+        return Response(ContentAttachmentSerializer(attachment).data, status=status.HTTP_201_CREATED)
+
+
+class AttachmentDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        attachment = get_object_or_404(ContentAttachment, pk=pk)
+        entity = attachment.entity
+        course = _find_course_for_child(entity)
+        if course and not can_manage_entity(request.user, course):
+            raise PermissionDenied()
+        attachment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------------------
+# Lesson-level quiz views
+# ---------------------------------------------------------------------------
+
+class LessonQuizListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, lesson_id):
+        entity = get_object_or_404(ContentEntity, pk=lesson_id)
+        links = ContentStructure.objects.filter(
+            parent_entity=entity,
+            child_entity__entity_type=EntityType.QUIZ,
+        ).select_related('child_entity').order_by('sort_order')
+        data = []
+        for link in links:
+            qe = link.child_entity
+            data.append({
+                'id': qe.id,
+                'title': qe.title,
+                'description': qe.description or '',
+                'is_published': qe.status_code == StatusCode.PUBLISHED,
+                'created_at': qe.created_at,
+            })
+        return Response(data)
+
+    def post(self, request, lesson_id):
+        entity = get_object_or_404(ContentEntity, pk=lesson_id)
+        course = _find_course_for_child(entity)
+        if course and not can_manage_entity(request.user, course):
+            raise PermissionDenied()
+
+        return _create_quiz_under_parent(request, entity, course)
+
+
+# ---------------------------------------------------------------------------
+# Module-level quiz views
+# ---------------------------------------------------------------------------
+
+class ModuleQuizListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, module_id):
+        mod = get_object_or_404(ContentEntity, pk=module_id, entity_type=EntityType.MODULE)
+        links = ContentStructure.objects.filter(
+            parent_entity=mod,
+            child_entity__entity_type=EntityType.QUIZ,
+        ).select_related('child_entity').order_by('sort_order')
+        data = []
+        for link in links:
+            qe = link.child_entity
+            data.append({
+                'id': qe.id,
+                'title': qe.title,
+                'description': qe.description or '',
+                'is_published': qe.status_code == StatusCode.PUBLISHED,
+                'created_at': qe.created_at,
+            })
+        return Response(data)
+
+    def post(self, request, module_id):
+        mod = get_object_or_404(ContentEntity, pk=module_id, entity_type=EntityType.MODULE)
+        course = _find_course_for_child(mod)
+        if course and not can_manage_entity(request.user, course):
+            raise PermissionDenied()
+
+        return _create_quiz_under_parent(request, mod, course)
+
+
+def _create_quiz_under_parent(request, parent_entity, course_entity):
+    from quizzes.models import QuizQuestion, QuizOption, QuizRewardRule
+
+    data = request.data
+    title = data.get('title', '').strip()
+    if not title:
+        return Response({'title': ['This field is required.']}, status=status.HTTP_400_BAD_REQUEST)
+
+    quiz_entity = ContentEntity.objects.create(
+        entity_type=EntityType.QUIZ,
+        title=title,
+        description=data.get('description', ''),
+        owner=request.user,
+        status_code=StatusCode.PUBLISHED if data.get('is_published', True) else StatusCode.DRAFT,
+    )
+
+    pass_pct = data.get('pass_percentage', 50)
+    QuizContent.objects.create(entity=quiz_entity, pass_percentage=int(pass_pct))
+
+    max_order = ContentStructure.objects.filter(parent_entity=parent_entity).count()
+    ContentStructure.objects.create(
+        parent_entity=parent_entity,
+        child_entity=quiz_entity,
+        sort_order=max_order,
+    )
+
+    r1 = int(data.get('reward_first_try', 10))
+    r2 = int(data.get('reward_second_try', 8))
+    r3 = int(data.get('reward_third_try', 5))
+    r4 = int(data.get('reward_fourth_plus', 2))
+    QuizRewardRule.objects.bulk_create([
+        QuizRewardRule(quiz_entity=quiz_entity, attempt_from=1, attempt_to=1, points_awarded=r1),
+        QuizRewardRule(quiz_entity=quiz_entity, attempt_from=2, attempt_to=2, points_awarded=r2),
+        QuizRewardRule(quiz_entity=quiz_entity, attempt_from=3, attempt_to=3, points_awarded=r3),
+        QuizRewardRule(quiz_entity=quiz_entity, attempt_from=4, attempt_to=None, points_awarded=r4),
+    ])
+
+    questions_data = data.get('questions', [])
+    if isinstance(questions_data, str):
+        import json
+        try:
+            questions_data = json.loads(questions_data)
+        except (json.JSONDecodeError, TypeError):
+            questions_data = []
+
+    for q_order, q_data in enumerate(questions_data):
+        options_data = q_data.get('options', [])
+        question = QuizQuestion.objects.create(
+            quiz_entity=quiz_entity,
+            question_text=q_data.get('question_text', ''),
+            marks=q_data.get('marks', 1),
+            sort_order=q_data.get('sort_order', q_order),
+        )
+        for o_order, o_data in enumerate(options_data):
+            QuizOption.objects.create(
+                question=question,
+                option_text=o_data.get('option_text', ''),
+                is_correct=o_data.get('is_correct', False),
+                sort_order=o_data.get('sort_order', o_order),
+            )
+
+    return Response({
+        'id': quiz_entity.id,
+        'title': quiz_entity.title,
+        'description': quiz_entity.description or '',
+        'is_published': quiz_entity.status_code == StatusCode.PUBLISHED,
+        'pass_percentage': pass_pct,
+        'created_at': quiz_entity.created_at,
+    }, status=status.HTTP_201_CREATED)

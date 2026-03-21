@@ -20,6 +20,7 @@ User = get_user_model()
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
+    authentication_classes = []
 
     def post(self, request, *args, **kwargs):
         serializer = RegisterSerializer(data=request.data, context={'request': self.request})
@@ -39,11 +40,13 @@ class RegisterView(APIView):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     permission_classes = [AllowAny]
+    authentication_classes = []
     serializer_class = CustomTokenObtainPairSerializer
 
 
 class RefreshTokenView(TokenRefreshView):
     permission_classes = [AllowAny]
+    authentication_classes = []
 
 
 class UserProfileView(generics.RetrieveUpdateAPIView):

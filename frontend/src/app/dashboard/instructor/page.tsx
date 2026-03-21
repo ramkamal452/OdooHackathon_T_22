@@ -62,9 +62,14 @@ export default function InstructorDashboardPage() {
                 Manage your courses and track enrollments.
               </p>
             </div>
-            <Link href="/dashboard/instructor/courses/new" className="btn-primary">
-              Create course
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/dashboard/instructor/content" className="btn-secondary">
+                Content Manager
+              </Link>
+              <Link href="/dashboard/instructor/courses/new" className="btn-primary">
+                Create course
+              </Link>
+            </div>
           </div>
 
           {loading || !data ? (

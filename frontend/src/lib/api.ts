@@ -45,10 +45,16 @@ function flushQueue(error: unknown, token: string | null) {
   queue = [];
 }
 
+const AUTH_OPEN_PATHS = ['/api/auth/register/', '/api/auth/login/', '/api/auth/token/refresh/'];
+
 api.interceptors.request.use((config) => {
-  const token = getAccessToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const url = config.url || '';
+  const isOpenAuth = AUTH_OPEN_PATHS.some((p) => url.includes(p));
+  if (!isOpenAuth) {
+    const token = getAccessToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   if (config.data instanceof FormData) {
     delete config.headers['Content-Type'];
@@ -71,6 +77,12 @@ api.interceptors.response.use(
     if (status !== 401) {
       return Promise.reject(error);
     }
+
+    const isOpenAuth = AUTH_OPEN_PATHS.some((p) => url.includes(p));
+    if (isOpenAuth) {
+      return Promise.reject(error);
+    }
+
     if (url.includes('/api/auth/token/refresh/')) {
       clearStoredTokens();
       if (typeof window !== 'undefined') window.location.href = '/login';
@@ -190,6 +202,14 @@ export interface ModuleItem {
   lesson_count?: number;
 }
 
+export interface AttachmentItem {
+  id: number;
+  title: string;
+  file?: string | null;
+  url?: string;
+  created_at?: string;
+}
+
 export interface LessonItem {
   id: number;
   title: string;
@@ -201,6 +221,7 @@ export interface LessonItem {
   sort_order: number;
   is_preview?: boolean;
   is_completed?: boolean;
+  attachments?: AttachmentItem[];
 }
 
 export interface CourseListItem {

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 
 const nav = [
+  { href: '/admin/content-manager', label: 'Content Manager', icon: TreeIcon },
   { href: '/admin/users', label: 'Users', icon: UsersIcon },
   { href: '/admin/categories', label: 'Categories', icon: FolderIcon },
   { href: '/admin/courses', label: 'Courses', icon: BookIcon },
@@ -18,6 +19,14 @@ const nav = [
   { href: '/admin/quiz-attempts', label: 'Quiz Attempts', icon: ClockIcon },
   { href: '/admin/quiz-answers', label: 'Quiz Answers', icon: CheckIcon },
 ] as const;
+
+function TreeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h8m-8 6h16M8 6v6m4-6v12" />
+    </svg>
+  );
+}
 
 function UsersIcon({ className }: { className?: string }) {
   return (
