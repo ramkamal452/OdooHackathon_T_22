@@ -1,0 +1,1622 @@
+Below is a **full explanation of every table and every field** in that schema, with the design intent behind each one.
+
+---
+
+# 1) `USERS`
+
+This is the master identity table for everyone in the platform.
+
+## Purpose
+
+Stores:
+
+* admins
+* instructors
+* learners
+
+This is the root user table used by almost every other table.
+
+## Fields
+
+### `id` PK
+
+Unique primary key for each user.
+
+### `full_name`
+
+The user’s display name.
+
+### `email` UK
+
+Unique email address. Used for login, invitations, communication, and identity.
+
+### `password_hash`
+
+Hashed password value.
+If you use Django auth fully, this maps to Django’s stored password field.
+
+### `role_code`
+
+Numeric representation of role.
+
+Suggested values:
+
+* `1 = admin`
+* `2 = instructor`
+* `3 = learner`
+
+Why numeric:
+
+* smaller storage
+* faster comparisons
+* cleaner indexing than text role names
+
+### `is_active`
+
+Whether the account is active or disabled.
+
+### `created_at`
+
+When the user was created.
+
+### `updated_at`
+
+When the user record was last changed.
+
+### `last_login_at`
+
+Useful for analytics, security, and admin visibility.
+
+---
+
+# 2) `ASSETS`
+
+This table stores metadata for files stored in **Amazon S3**.
+
+## Purpose
+
+Do **not** store images/videos/PDFs in MySQL.
+Store only metadata in DB, and actual files in S3.
+
+Used for:
+
+* thumbnails
+* videos
+* PDFs
+* captions
+* badge icons
+* downloadable resources
+
+## Fields
+
+### `id` PK
+
+Unique asset ID.
+
+### `storage_provider`
+
+Which storage system is used.
+
+Suggested values:
+
+* `1 = Amazon S3`
+* `2 = CloudFront-backed S3`
+* `3 = local dev storage`
+
+### `bucket_name`
+
+S3 bucket name.
+
+### `object_key` UK
+
+The exact S3 object path/key, for example:
+`courses/python/intro/video1.mp4`
+
+Unique because each object path should identify one object.
+
+### `file_name`
+
+Human-readable original file name.
+
+### `mime_type`
+
+Type of file, such as:
+
+* `image/png`
+* `video/mp4`
+* `application/pdf`
+
+### `file_size_bytes`
+
+Size of the file in bytes.
+
+### `checksum_sha256`
+
+Optional integrity hash. Useful for deduplication or verification.
+
+### `width`
+
+For images/video thumbnails.
+
+### `height`
+
+For images/video thumbnails.
+
+### `duration_seconds`
+
+For audio/video assets.
+
+### `etag`
+
+S3-style file change reference or hash-like metadata.
+
+### `is_public`
+
+Whether the file can be served publicly without signed URLs.
+
+### `uploaded_by` FK
+
+User who uploaded the file.
+
+### `created_at`
+
+When asset metadata was created.
+
+---
+
+# 3) `CONTENT_ENTITIES`
+
+This is the **core flexible content table** of the whole platform.
+
+## Purpose
+
+Stores all high-level content objects in one place.
+
+Examples:
+
+* course
+* module
+* lesson
+* video item
+* quiz item
+* article item
+* resource item
+* assignment later
+
+This is the key table that makes the design flexible.
+
+## Fields
+
+### `id` PK
+
+Unique ID for each content object.
+
+### `entity_type`
+
+Tells what kind of thing this record is.
+
+Suggested values:
+
+* `1 = course`
+* `2 = module`
+* `3 = lesson`
+* `4 = video`
+* `5 = quiz`
+* `6 = article`
+* `7 = resource`
+* `8 = assignment`
+
+This is the heart of the polymorphic design.
+
+### `title`
+
+Main title of the content.
+
+Examples:
+
+* `Python Basics`
+* `Module 1: Introduction`
+* `Intro Video`
+* `Quiz 1`
+
+### `slug` UK
+
+Readable unique identifier for URLs.
+
+Examples:
+
+* `python-basics`
+* `intro-to-ai`
+
+Usually important for:
+
+* frontend routes
+* SEO-friendly links
+* clean public URLs
+
+### `short_description`
+
+Short summary for cards and listings.
+
+### `description`
+
+Longer detailed description.
+
+### `owner_id` FK
+
+Who created or owns the content.
+
+Usually:
+
+* instructor
+* admin
+
+### `status_code`
+
+Publication state.
+
+Suggested values:
+
+* `1 = draft`
+* `2 = published`
+* `3 = archived`
+* `4 = hidden`
+
+### `visibility_code`
+
+Controls who can see it.
+
+Suggested values:
+
+* `1 = private`
+* `2 = invited_only`
+* `3 = enrolled_only`
+* `4 = public`
+
+### `thumbnail_asset_id` FK
+
+Optional thumbnail/image for this content entity.
+
+### `estimated_duration_seconds`
+
+Estimated time to complete/watch/read.
+
+Useful for:
+
+* course cards
+* learner planning
+* progress views
+
+### `allow_standalone_enrollment`
+
+Whether a user can enroll/access this item directly without it needing to sit under a course.
+
+This supports your test case:
+
+* standalone lesson
+* standalone quiz
+* standalone video
+
+### `is_reusable`
+
+Whether the same content can be reused under multiple parents.
+
+Example:
+
+* same quiz reused in two modules
+* same lesson used in multiple courses
+
+### `published_at`
+
+Actual publish timestamp.
+
+### `archived_at`
+
+When it was archived.
+
+### `created_at`
+
+Creation timestamp.
+
+### `updated_at`
+
+Last update timestamp.
+
+### `deleted_at`
+
+Soft delete marker if you want recoverability.
+
+---
+
+# 4) `CONTENT_STRUCTURE`
+
+This table defines the parent-child hierarchy of content.
+
+## Purpose
+
+This is what makes the schema flexible.
+
+Examples:
+
+* course -> module
+* module -> lesson
+* course -> video
+* course -> quiz
+* module -> video
+* standalone lesson -> no row needed here
+
+This table controls structure, sequence, preview rules, and unlock behavior.
+
+## Fields
+
+### `id` PK
+
+Unique row ID.
+
+### `parent_entity_id` FK
+
+The container/parent.
+
+Example:
+
+* Course A
+
+### `child_entity_id` FK
+
+The child item inside that parent.
+
+Example:
+
+* Module B
+* Quiz 1
+* Intro Video
+
+### `sort_order`
+
+The order in which the child appears under the parent.
+
+Examples:
+
+* `1`
+* `2`
+* `3`
+
+Important for course outline rendering.
+
+### `is_required`
+
+Whether completing this child is mandatory for parent completion.
+
+### `is_preview`
+
+Whether learner can access this child before enrollment/purchase.
+
+Example:
+
+* first lesson free preview
+
+### `unlock_rule_code`
+
+Type of unlocking behavior.
+
+Suggested values:
+
+* `1 = immediate`
+* `2 = after_previous`
+* `3 = after_prerequisite`
+* `4 = scheduled`
+* `5 = manual`
+
+### `unlock_rule_config`
+
+JSON config for detailed unlock logic.
+
+Examples:
+
+* unlock after date
+* unlock after completing 80%
+* unlock when previous child is passed
+
+### `created_at`
+
+Creation timestamp.
+
+---
+
+# 5) `ENTITY_STATS`
+
+A summary table for precomputed stats.
+
+## Purpose
+
+Avoid expensive repeated calculations on large content trees.
+
+Instead of recalculating counts every time, keep summary values here.
+
+## Fields
+
+### `entity_id` PK, FK
+
+Same ID as corresponding content entity.
+
+### `direct_child_count`
+
+How many direct children this entity has.
+
+Example:
+
+* course has 8 direct items
+
+### `required_child_count`
+
+How many of those direct children are required.
+
+### `total_duration_seconds`
+
+Precomputed total duration.
+
+Very useful for:
+
+* course cards
+* dashboard
+* analytics
+
+### `enrollment_count`
+
+How many users enrolled.
+
+### `completion_count`
+
+How many finished.
+
+### `average_rating`
+
+Average review rating.
+
+### `total_reviews`
+
+Total review count.
+
+### `total_points_awarded`
+
+Total points issued from this entity or inside this entity.
+
+### `updated_at`
+
+When stats were refreshed.
+
+---
+
+# 6) `CATEGORIES`
+
+Main category taxonomy.
+
+## Purpose
+
+Allows grouping content.
+
+Examples:
+
+* Programming
+* Design
+* Marketing
+* Data Science
+
+## Fields
+
+### `id` PK
+
+Category ID.
+
+### `name`
+
+Category name.
+
+### `slug` UK
+
+Readable unique slug.
+
+### `parent_id` FK
+
+Supports nested categories.
+
+Example:
+
+* Programming -> Python
+
+### `created_at`
+
+Creation timestamp.
+
+---
+
+# 7) `ENTITY_CATEGORIES`
+
+Join table connecting content to categories.
+
+## Purpose
+
+A content item can belong to one or more categories.
+
+## Fields
+
+### `entity_id` FK
+
+The content entity.
+
+### `category_id` FK
+
+The category.
+
+### `created_at`
+
+When mapping was created.
+
+---
+
+# 8) `TAGS`
+
+Flat tag system.
+
+## Purpose
+
+Tags are more flexible than categories.
+
+Examples:
+
+* beginner
+* certificate
+* python
+* frontend
+* interview
+
+## Fields
+
+### `id` PK
+
+Tag ID.
+
+### `name`
+
+Tag label.
+
+### `slug` UK
+
+Unique machine-friendly version.
+
+### `created_at`
+
+Creation timestamp.
+
+---
+
+# 9) `ENTITY_TAGS`
+
+Join table for tags.
+
+## Purpose
+
+Lets one content entity have many tags.
+
+## Fields
+
+### `entity_id` FK
+
+Content item.
+
+### `tag_id` FK
+
+Tag item.
+
+### `created_at`
+
+Mapping creation time.
+
+---
+
+# 10) `VIDEO_CONTENTS`
+
+Video-specific detail table.
+
+## Purpose
+
+Stores fields that only matter for video-type entities.
+
+This keeps the main table lean.
+
+## Fields
+
+### `entity_id` PK, FK
+
+Links to `CONTENT_ENTITIES`.
+
+### `video_asset_id` FK
+
+Main S3 video asset.
+
+### `poster_asset_id` FK
+
+Thumbnail/poster image for video.
+
+### `captions_asset_id` FK
+
+Caption/subtitle file asset.
+
+### `streaming_provider`
+
+How video is served.
+
+Suggested values:
+
+* `1 = direct S3`
+* `2 = CloudFront`
+* `3 = HLS/streaming provider`
+
+### `duration_seconds`
+
+Video duration.
+
+### `transcript_text`
+
+Transcript for accessibility and search.
+
+### `allow_download`
+
+Whether learner may download the video.
+
+### `autoplay_enabled`
+
+Frontend behavior flag.
+
+---
+
+# 11) `ARTICLE_CONTENTS`
+
+Article/text content details.
+
+## Purpose
+
+Used for long-form learning material.
+
+## Fields
+
+### `entity_id` PK, FK
+
+Related content entity.
+
+### `body_markdown`
+
+Actual written content.
+
+### `reading_time_seconds`
+
+Estimated reading duration.
+
+---
+
+# 12) `RESOURCE_CONTENTS`
+
+File/resource-specific details.
+
+## Purpose
+
+For downloadable PDFs, worksheets, docs, images, etc.
+
+## Fields
+
+### `entity_id` PK, FK
+
+Related content entity.
+
+### `asset_id` FK
+
+S3 asset for the resource.
+
+### `resource_kind`
+
+Type of resource.
+
+Suggested values:
+
+* `1 = pdf`
+* `2 = image`
+* `3 = worksheet`
+* `4 = attachment`
+* `5 = external_link_doc`
+
+### `allow_download`
+
+Whether learner can download it.
+
+---
+
+# 13) `QUIZ_CONTENTS`
+
+Quiz configuration table.
+
+## Purpose
+
+Stores quiz behavior/config separate from the main content table.
+
+## Fields
+
+### `entity_id` PK, FK
+
+Quiz content entity ID.
+
+### `instructions`
+
+Instructions shown before attempt starts.
+
+### `attempt_limit`
+
+Maximum attempts allowed.
+
+### `pass_percentage`
+
+Minimum percentage required to pass.
+
+### `shuffle_questions`
+
+Whether questions are shuffled.
+
+### `shuffle_options`
+
+Whether options are shuffled.
+
+### `show_answers_after_submit`
+
+Whether answers are shown after submission.
+
+### `show_score_immediately`
+
+Whether final score is shown immediately.
+
+### `time_limit_seconds`
+
+Optional countdown timer.
+
+### `allow_resume`
+
+Whether attempt can be resumed.
+
+### `award_points`
+
+Whether this quiz contributes to gamification points.
+
+---
+
+# 14) `LESSON_CONTENTS`
+
+Lesson-specific data.
+
+## Purpose
+
+For lesson entities that contain their own textual body or structured lesson info.
+
+## Fields
+
+### `entity_id` PK, FK
+
+Related lesson entity.
+
+### `lesson_format`
+
+Type of lesson.
+
+Suggested values:
+
+* `1 = text`
+* `2 = mixed`
+* `3 = guided`
+* `4 = wrapper`
+
+### `body`
+
+Lesson content/body if lesson directly stores text.
+
+---
+
+# 15) `COMPLETION_RULES`
+
+Flexible completion logic table.
+
+## Purpose
+
+Defines what it means to complete an entity.
+
+Examples:
+
+* watch 80% of video
+* pass quiz with 70%
+* complete all required children
+* complete any 3 children
+
+## Fields
+
+### `id` PK
+
+Rule ID.
+
+### `entity_id` FK
+
+Entity the rule belongs to.
+
+### `rule_type`
+
+Type of rule.
+
+Suggested values:
+
+* `1 = all_required_children`
+* `2 = any_n_children`
+* `3 = pass_quiz`
+* `4 = watch_percentage`
+* `5 = manual_mark_complete`
+
+### `rule_config`
+
+JSON config for rule details.
+
+Examples:
+
+* `{"required_count": 3}`
+* `{"watch_percent": 80}`
+
+### `created_at`
+
+Timestamp.
+
+---
+
+# 16) `ENTITY_PREREQUISITES`
+
+Defines dependency relationships.
+
+## Purpose
+
+A user must finish one thing before another becomes eligible.
+
+## Fields
+
+### `id` PK
+
+Row ID.
+
+### `entity_id` FK
+
+The content being blocked.
+
+### `required_entity_id` FK
+
+The content that must be completed first.
+
+### `created_at`
+
+Timestamp.
+
+Example:
+
+* Quiz 1 requires Intro Video
+
+---
+
+# 17) `COURSE_MEMBERSHIPS`
+
+Enrollment/invitation/access table for courses.
+
+## Purpose
+
+This table is more specific than a generic enrollment table because the PDF required:
+
+* invitation-based access
+* attendees
+* enrollment state
+* invite by email
+* learner lifecycle
+
+## Fields
+
+### `id` PK
+
+Membership row ID.
+
+### `course_entity_id` FK
+
+The course the membership belongs to.
+
+### `user_id` FK
+
+Linked user if registered.
+
+Nullable because invite may happen before signup.
+
+### `invited_email`
+
+Email address invited.
+
+Important for:
+
+* pre-registration invites
+* invited users not yet onboarded
+
+### `invited_by` FK
+
+Who sent the invite.
+
+### `invite_token` UK
+
+Unique token for invitation acceptance.
+
+### `membership_status`
+
+Current state.
+
+Suggested values:
+
+* `1 = invited`
+* `2 = active`
+* `3 = completed`
+* `4 = revoked`
+* `5 = expired`
+
+### `access_mode`
+
+How access was granted.
+
+Suggested values:
+
+* `1 = open`
+* `2 = invitation`
+* `3 = admin_assigned`
+* `4 = imported`
+
+### `invited_at`
+
+Invitation time.
+
+### `enrolled_at`
+
+When actual enrollment happened.
+
+### `started_at`
+
+When learner actually began the course.
+
+### `completed_at`
+
+Completion timestamp.
+
+### `revoked_at`
+
+When access was removed.
+
+### `last_accessed_at`
+
+Last course activity timestamp.
+
+### `progress_percent`
+
+Cached course progress.
+
+---
+
+# 18) `ENTITY_PROGRESS`
+
+Generic learner progress table.
+
+## Purpose
+
+Tracks progress for any entity type:
+
+* course
+* module
+* lesson
+* video
+* quiz
+* article
+
+This is much more flexible than only `lesson_progress`.
+
+## Fields
+
+### `id` PK
+
+Progress row ID.
+
+### `learner_id` FK
+
+The learner.
+
+### `entity_id` FK
+
+The content item being tracked.
+
+### `progress_status`
+
+Current status.
+
+Suggested values:
+
+* `1 = not_started`
+* `2 = in_progress`
+* `3 = completed`
+* `4 = failed`
+* `5 = locked`
+
+### `progress_percent`
+
+Completion percentage.
+
+### `last_position_seconds`
+
+For resumable video/audio progress.
+
+### `started_at`
+
+When progress started.
+
+### `completed_at`
+
+When completed.
+
+### `last_accessed_at`
+
+Last access time.
+
+### `updated_at`
+
+Latest progress update timestamp.
+
+---
+
+# 19) `QUIZ_QUESTIONS`
+
+Questions belonging to quiz entities.
+
+## Purpose
+
+Stores actual quiz questions.
+
+## Fields
+
+### `id` PK
+
+Question ID.
+
+### `quiz_entity_id` FK
+
+Which quiz this question belongs to.
+
+### `question_type`
+
+Type of question.
+
+Suggested values:
+
+* `1 = mcq_single`
+* `2 = mcq_multiple`
+* `3 = short_text`
+* `4 = true_false`
+
+Even if MVP starts with MCQ only, this keeps room for growth.
+
+### `question_text`
+
+Question body.
+
+### `explanation_text`
+
+Optional explanation shown after answer.
+
+### `marks`
+
+Points available for this question.
+
+### `sort_order`
+
+Display order.
+
+### `is_active`
+
+Whether question is active/usable.
+
+### `created_at`
+
+Creation timestamp.
+
+### `updated_at`
+
+Update timestamp.
+
+---
+
+# 20) `QUIZ_OPTIONS`
+
+Answer options for questions.
+
+## Purpose
+
+Stores answer choices for MCQ-like questions.
+
+## Fields
+
+### `id` PK
+
+Option ID.
+
+### `question_id` FK
+
+Question this option belongs to.
+
+### `option_text`
+
+Option label.
+
+### `is_correct`
+
+Whether this option is correct.
+
+### `sort_order`
+
+Display order.
+
+---
+
+# 21) `QUIZ_ATTEMPTS`
+
+Every learner attempt at a quiz.
+
+## Purpose
+
+Needed because learners can attempt multiple times, and the PDF mentioned attempt-based rewards.
+
+## Fields
+
+### `id` PK
+
+Attempt ID.
+
+### `quiz_entity_id` FK
+
+Quiz being attempted.
+
+### `learner_id` FK
+
+Learner making the attempt.
+
+### `attempt_no`
+
+Attempt sequence number:
+
+* 1st attempt
+* 2nd attempt
+* 3rd attempt
+
+### `score`
+
+Points earned in this attempt.
+
+### `max_score`
+
+Maximum possible score.
+
+### `percentage`
+
+Score percentage.
+
+### `is_passed`
+
+Whether passing threshold was met.
+
+### `time_spent_seconds`
+
+How long learner took.
+
+### `started_at`
+
+Start time.
+
+### `submitted_at`
+
+Submission time.
+
+### `created_at`
+
+Attempt row creation time.
+
+---
+
+# 22) `QUIZ_ATTEMPT_ANSWERS`
+
+Stores the learner’s answer per question per attempt.
+
+## Purpose
+
+Lets you:
+
+* review answers
+* show result details
+* calculate analytics
+* audit attempt history
+
+## Fields
+
+### `id` PK
+
+Answer row ID.
+
+### `attempt_id` FK
+
+Which attempt this belongs to.
+
+### `question_id` FK
+
+Which question was answered.
+
+### `selected_option_id` FK
+
+Chosen option for MCQ-like questions.
+
+Nullable if question is text-based.
+
+### `text_answer`
+
+Typed answer for open-ended questions.
+
+### `is_correct`
+
+Whether the answer was correct.
+
+### `marks_awarded`
+
+Marks assigned for this answer.
+
+### `answered_at`
+
+Timestamp of answering.
+
+---
+
+# 23) `QUIZ_REWARD_RULES`
+
+Attempt-based point rules.
+
+## Purpose
+
+Needed because rewards may depend on attempt number.
+
+Example:
+
+* 1st attempt = 100 points
+* 2nd attempt = 70 points
+* 3rd attempt = 40 points
+* 4th+ = 10 points
+
+## Fields
+
+### `id` PK
+
+Rule ID.
+
+### `quiz_entity_id` FK
+
+Quiz this rule belongs to.
+
+### `attempt_from`
+
+Starting attempt number for this rule.
+
+### `attempt_to`
+
+Ending attempt number for this rule.
+Nullable means open-ended.
+
+Example:
+
+* `4+`
+
+### `points_awarded`
+
+Points to award for attempts in that range.
+
+### `created_at`
+
+Timestamp.
+
+---
+
+# 24) `COURSE_REVIEWS`
+
+Stores learner ratings and reviews for courses.
+
+## Purpose
+
+Supports:
+
+* star ratings
+* written feedback
+* public reviews
+* instructor insight
+
+## Fields
+
+### `id` PK
+
+Review ID.
+
+### `course_entity_id` FK
+
+Course being reviewed.
+
+### `user_id` FK
+
+Reviewer.
+
+### `rating`
+
+Rating value, usually 1–5.
+
+### `review_text`
+
+Written review.
+
+### `is_published`
+
+Whether visible publicly.
+
+### `created_at`
+
+Creation time.
+
+### `updated_at`
+
+Last edit time.
+
+---
+
+# 25) `BADGES`
+
+Badge definitions.
+
+## Purpose
+
+Used for gamification.
+
+Examples:
+
+* Bronze Learner
+* Silver Achiever
+* Quiz Master
+
+## Fields
+
+### `id` PK
+
+Badge ID.
+
+### `name`
+
+Badge name.
+
+### `slug` UK
+
+Unique code-friendly badge identifier.
+
+### `description`
+
+Badge meaning/explanation.
+
+### `min_points`
+
+Minimum points needed to qualify.
+
+### `icon_asset_id` FK
+
+Badge icon from S3 assets.
+
+### `sort_order`
+
+Display order.
+
+### `is_active`
+
+Whether badge is currently active.
+
+### `created_at`
+
+Creation timestamp.
+
+---
+
+# 26) `USER_POINT_LEDGER`
+
+Stores point transactions.
+
+## Purpose
+
+This is better than storing only a mutable total score.
+
+Why ledger is better:
+
+* auditable
+* reversible
+* traceable
+* analytics-friendly
+
+## Fields
+
+### `id` PK
+
+Ledger row ID.
+
+### `user_id` FK
+
+User receiving points.
+
+### `source_type`
+
+What caused the points.
+
+Suggested values:
+
+* `1 = quiz`
+* `2 = course_completion`
+* `3 = lesson_completion`
+* `4 = admin_bonus`
+* `5 = badge_bonus`
+
+### `source_entity_id` FK
+
+Which content entity caused it.
+
+### `source_attempt_id` FK
+
+If points came from a quiz attempt.
+
+### `points`
+
+Positive or negative point delta.
+
+### `reason`
+
+Human-readable explanation.
+
+### `created_at`
+
+When points were awarded.
+
+---
+
+# 27) `USER_BADGES`
+
+Which users earned which badges.
+
+## Purpose
+
+Many-to-many link between users and badges.
+
+## Fields
+
+### `id` PK
+
+Row ID.
+
+### `user_id` FK
+
+User receiving badge.
+
+### `badge_id` FK
+
+Badge awarded.
+
+### `awarded_at`
+
+Award time.
+
+---
+
+# Relationship logic summary
+
+## Core content model
+
+`CONTENT_ENTITIES` stores all content objects.
+`CONTENT_STRUCTURE` links them in parent-child trees.
+
+That is what gives you:
+
+* standalone lesson
+* direct video under course
+* direct quiz under module
+* mixed content hierarchy
+
+## S3 file model
+
+`ASSETS` stores metadata only.
+Actual binary files live in S3.
+
+## Progress model
+
+`ENTITY_PROGRESS` tracks learner activity at any content level.
+`COURSE_MEMBERSHIPS` tracks course-level membership and invitation lifecycle.
+
+## Quiz engine
+
+* `QUIZ_CONTENTS`
+* `QUIZ_QUESTIONS`
+* `QUIZ_OPTIONS`
+* `QUIZ_ATTEMPTS`
+* `QUIZ_ATTEMPT_ANSWERS`
+* `QUIZ_REWARD_RULES`
+
+Together these fully support configurable quizzes and attempt-based points.
+
+## Gamification model
+
+* `USER_POINT_LEDGER`
+* `BADGES`
+* `USER_BADGES`
+
+This handles points and badges in an auditable way.
+
+---
+
+# Why the design is strong
+
+## Flexibility
+
+A course can contain:
+
+* module
+* video
+* article
+* quiz
+* resource
+
+A module can also contain those.
+
+A lesson can exist alone.
+
+## Scalability
+
+The main hot tables are narrow:
+
+* `CONTENT_ENTITIES`
+* `CONTENT_STRUCTURE`
+* `ENTITY_PROGRESS`
+* `COURSE_MEMBERSHIPS`
+
+Heavy content is split into detail tables.
+
+## Storage efficiency
+
+Large files are in S3, not MySQL.
+
+## CPU efficiency
+
+The design supports optimization through:
+
+* narrow hot tables
+* numeric codes
+* precomputed stats
+* cache-friendly structure
+* separate detail tables
+
+---
+
+# One important implementation note
+
+In a real Django/MySQL system, you should also add:
+
+* unique constraints
+* composite indexes
+* foreign key indexes
+* check constraints where possible
+* enum mapping constants in code
+
+Because schema quality is not just tables and columns; it is also:
+
+* indexes
+* constraints
+* migration safety
+* query design

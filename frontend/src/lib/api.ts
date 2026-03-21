@@ -207,16 +207,19 @@ export interface AttachmentItem {
   title: string;
   file?: string | null;
   url?: string;
+  file_url?: string | null;
+  external_url?: string | null;
   created_at?: string;
 }
 
 export interface LessonItem {
   id: number;
   title: string;
-  content_type: 'video' | 'text' | 'pdf' | 'link' | 'document' | 'image';
+  content_type: 'video' | 'audio' | 'text' | 'pdf' | 'link' | 'document' | 'image';
   content_body?: string;
   video_url?: string;
   resource_url?: string;
+  allow_download?: boolean;
   duration_minutes?: number | null;
   sort_order: number;
   is_preview?: boolean;
@@ -241,6 +244,7 @@ export interface CourseListItem {
   enrollment_count?: number;
   duration_minutes?: number | null;
   created_at?: string;
+  tags?: string;
 }
 
 export interface CourseReview {
@@ -256,8 +260,8 @@ export interface CourseReview {
 
 export interface CourseDetail extends CourseListItem {
   modules: ModuleItem[];
-  tags?: string;
   website?: string;
+  responsible?: { id: number; first_name: string; last_name: string; email: string } | null;
   visibility?: string;
   access_rule?: string;
   price?: string | null;

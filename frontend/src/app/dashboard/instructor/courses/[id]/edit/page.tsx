@@ -16,8 +16,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/components/Toast';
 import { Category, CourseDetail, api, mediaUrl, unwrapList } from '@/lib/api';
-import { Layers, Save, Send, Settings } from 'lucide-react';
+import { HelpCircle, Layers, Save, Send, Settings, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
@@ -25,6 +26,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 export default function EditCoursePage() {
   const params = useParams();
   const courseId = String(params.id);
+  const { toast } = useToast();
 
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -43,6 +45,11 @@ export default function EditCoursePage() {
   const [thumbFile, setThumbFile] = useState<File | null>(null);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteMsg, setInviteMsg] = useState('');
+  const [tags, setTags] = useState('');
+  const [website, setWebsite] = useState('');
+  const [responsibleId, setResponsibleId] = useState('');
+  const [users, setUsers] = useState<{ id: number; first_name: string; last_name: string; email: string }[]>([]);
+  const [quizzes, setQuizzes] = useState<any[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -51,6 +58,9 @@ export default function EditCoursePage() {
       const { data: c } = await api.get<CourseDetail>(`/api/courses/${courseId}/`);
       setCourse(c);
       setTitle(c.title);
+      setTags(c.tags || '');
+      setWebsite(c.website || '');
+      setResponsibleId(c.responsible?.id != null ? String(c.responsible.id) : '');
       setShortDescription(c.short_description || '');
       setDescription(c.description || '');
       setCategoryId(c.category?.id != null ? String(c.category.id) : '');
@@ -58,6 +68,11 @@ export default function EditCoursePage() {
       setVisibility(c.visibility || 'everyone');
       setAccessRule(c.access_rule || 'open');
       setPrice(c.price != null ? String(c.price) : '');
+      try {
+        const { data: qd } = await api.get(`/api/quizzes/course/${courseId}/`);
+        const list = Array.isArray(qd) ? qd : (qd as any).results || [];
+        setQuizzes(list);
+      } catch { setQuizzes([]); }
     } catch {
       setError('Could not load course.');
       setCourse(null);
@@ -70,6 +85,11 @@ export default function EditCoursePage() {
         const { data } = await api.get<unknown>('/api/categories/');
         setCategories(unwrapList<Category>(data));
       } catch { setCategories([]); }
+      try {
+        const { data: u } = await api.get<unknown>('/api/users/');
+        const list = Array.isArray(u) ? u : (u as any).results || [];
+        setUsers(list);
+      } catch { setUsers([]); }
     })();
   }, []);
 
@@ -87,6 +107,9 @@ export default function EditCoursePage() {
     try {
       const fd = new FormData();
       fd.append('title', title);
+      fd.append('tags', tags);
+      fd.append('website', website);
+      if (responsibleId) fd.append('responsible', responsibleId);
       fd.append('short_description', shortDescription);
       fd.append('description', description);
       if (categoryId) fd.append('category', categoryId);
@@ -146,6 +169,15 @@ export default function EditCoursePage() {
         actions={
           <div className="flex items-center gap-2">
             <Badge variant={isPublished ? 'default' : 'secondary'}>{isPublished ? 'Published' : 'Draft'}</Badge>
+            <Button variant="outline" size="sm" onClick={() => window.open(`/courses/${courseId}`, '_blank')}>
+              Preview
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/courses/${courseId}`); }}>
+              Share
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => toast('Contact attendees feature coming soon.', 'info')}>
+              Contact
+            </Button>
             <Button variant="outline" size="sm" onClick={togglePublish} disabled={saving}>
               {isPublished ? 'Unpublish' : 'Publish'}
             </Button>
@@ -163,6 +195,7 @@ export default function EditCoursePage() {
           <TabsList>
             <TabsTrigger value="details"><Settings className="mr-1.5 h-4 w-4" />Details</TabsTrigger>
             <TabsTrigger value="content"><Layers className="mr-1.5 h-4 w-4" />Content</TabsTrigger>
+            <TabsTrigger value="quizzes"><HelpCircle className="mr-1.5 h-4 w-4" />Quizzes</TabsTrigger>
           </TabsList>
 
           <TabsContent value="details" className="mt-6 space-y-6">
@@ -174,13 +207,69 @@ export default function EditCoursePage() {
                     <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
                   </div>
                   <div className="space-y-2">
+                    <Label>Tags</Label>
+                    <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="Comma-separated tags, e.g. python, web, beginner" />
+                  </div>
+                  <div className="space-y-2">
                     <Label>Short description</Label>
                     <Textarea value={shortDescription} onChange={(e) => setShortDescription(e.target.value)} rows={2} />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Full description</Label>
-                    <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
-                  </div>
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">Full description</CardTitle>
+                      <p className="text-sm font-normal text-muted-foreground">
+                        Detailed overview shown on the course page. Supports markdown formatting.
+                      </p>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <div className="flex flex-wrap gap-1 rounded-md border bg-background p-1">
+                        {[
+                          { label: 'B', prefix: '**', suffix: '**', title: 'Bold' },
+                          { label: 'I', prefix: '_', suffix: '_', title: 'Italic' },
+                          { label: 'H1', prefix: '# ', suffix: '', title: 'Heading 1' },
+                          { label: 'H2', prefix: '## ', suffix: '', title: 'Heading 2' },
+                          { label: '•', prefix: '- ', suffix: '', title: 'Bullet list' },
+                          { label: '1.', prefix: '1. ', suffix: '', title: 'Numbered list' },
+                          { label: '>', prefix: '> ', suffix: '', title: 'Quote' },
+                        ].map((btn) => (
+                          <Button
+                            key={btn.label}
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs font-semibold"
+                            title={btn.title}
+                            onClick={() => {
+                              const ta = document.getElementById('desc-editor') as HTMLTextAreaElement;
+                              if (!ta) return;
+                              const start = ta.selectionStart;
+                              const end = ta.selectionEnd;
+                              const selected = description.substring(start, end);
+                              const before = description.substring(0, start);
+                              const after = description.substring(end);
+                              const newText = before + btn.prefix + selected + btn.suffix + after;
+                              setDescription(newText);
+                              setTimeout(() => {
+                                ta.focus();
+                                const newPos = start + btn.prefix.length + selected.length + btn.suffix.length;
+                                ta.setSelectionRange(newPos, newPos);
+                              }, 0);
+                            }}
+                          >
+                            {btn.label}
+                          </Button>
+                        ))}
+                      </div>
+                      <Textarea
+                        id="desc-editor"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        rows={8}
+                        className="min-h-[180px] font-mono text-sm"
+                        placeholder="Write the full course description using markdown…"
+                      />
+                    </CardContent>
+                  </Card>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label>Category</Label>
@@ -199,6 +288,26 @@ export default function EditCoursePage() {
                           <SelectItem value="beginner">Beginner</SelectItem>
                           <SelectItem value="intermediate">Intermediate</SelectItem>
                           <SelectItem value="advanced">Advanced</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label>Website URL</Label>
+                      <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://example.com" />
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Responsible / Course Admin</Label>
+                      <Select value={responsibleId || '__none__'} onValueChange={(v) => setResponsibleId(v === '__none__' ? '' : v)}>
+                        <SelectTrigger><SelectValue placeholder="Select responsible" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">— None —</SelectItem>
+                          {users.map((u) => (
+                            <SelectItem key={u.id} value={String(u.id)}>
+                              {u.first_name} {u.last_name} ({u.email})
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -274,6 +383,42 @@ export default function EditCoursePage() {
               </p>
             </Card>
             <ContentManager rootId={courseEntityId} />
+          </TabsContent>
+
+          <TabsContent value="quizzes" className="mt-6 space-y-4">
+            <Card className="p-4 mb-4 border-primary/20 bg-primary/5">
+              <p className="text-sm text-primary">
+                Manage <strong>quizzes</strong> linked to this course. Create, edit, or delete quizzes.
+              </p>
+            </Card>
+            {quizzes.length === 0 ? (
+              <Card className="p-8 text-center">
+                <p className="text-muted-foreground">No quizzes for this course yet.</p>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {quizzes.map((q: any) => (
+                  <Card key={q.id} className="flex items-center justify-between p-4">
+                    <div>
+                      <p className="font-medium">{q.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {q.question_count ?? 0} questions &middot; Pass: {q.pass_percentage ?? 50}%
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/courses/${courseId}/quiz/${q.id}`}>Preview</Link>
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-destructive" onClick={async () => {
+                        try { await api.delete(`/api/quizzes/${q.id}/`); setQuizzes(prev => prev.filter(x => x.id !== q.id)); } catch {}
+                      }}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>

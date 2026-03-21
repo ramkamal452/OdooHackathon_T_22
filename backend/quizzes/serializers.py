@@ -159,13 +159,20 @@ class QuizAttemptResultSerializer(serializers.ModelSerializer):
     answers = QuizAnswerResultSerializer(many=True, read_only=True)
     attempt_number = serializers.IntegerField(source='attempt_no')
     total_marks = serializers.IntegerField(source='max_score')
+    total_points = serializers.SerializerMethodField()
 
     class Meta:
         model = QuizAttempt
         fields = [
             'score', 'total_marks', 'percentage', 'is_passed',
-            'attempt_number', 'points_earned', 'submitted_at', 'answers',
+            'attempt_number', 'points_earned', 'total_points', 'submitted_at', 'answers',
         ]
+
+    def get_total_points(self, obj):
+        if obj.learner:
+            obj.learner.refresh_from_db(fields=['points'])
+            return obj.learner.points
+        return 0
 
 
 # ---------------------------------------------------------------------------

@@ -68,6 +68,15 @@ class Asset(models.Model):
                 return f'https://{bucket}.s3.{region}.amazonaws.com/{encoded_key}'
         return f'/media/{self.object_key}'
 
+    def delete_from_storage(self):
+        """Remove the file from storage (S3 or local)."""
+        try:
+            from django.core.files.storage import default_storage
+            if self.object_key and default_storage.exists(self.object_key):
+                default_storage.delete(self.object_key)
+        except Exception:
+            pass
+
     @classmethod
     def upload_file(cls, file_obj, user=None, object_key=None):
         from django.core.files.storage import default_storage
@@ -93,3 +102,12 @@ class Asset(models.Model):
             uploaded_by=user,
         )
         return asset
+
+
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
+
+
+@receiver(pre_delete, sender=Asset)
+def cleanup_asset_storage(sender, instance, **kwargs):
+    instance.delete_from_storage()

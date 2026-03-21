@@ -60,18 +60,37 @@ def _thumbnail_url(entity, request=None):
 
 def _content_type_label(entity):
     if entity.entity_type == EntityType.VIDEO:
+        try:
+            vd = entity.video_detail
+            url = (vd.video_url or '').lower()
+            ext = url.split('?')[0].rsplit('.', 1)[-1] if '.' in url.split('?')[0] else ''
+            if ext in ('mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a', 'wma'):
+                return 'audio'
+        except Exception:
+            pass
         return 'video'
     if entity.entity_type == EntityType.RESOURCE:
         try:
             from .models import ResourceKind
-            rk = entity.resource_detail.resource_kind
+            rd = entity.resource_detail
+            rk = rd.resource_kind
             if rk == ResourceKind.IMAGE:
                 return 'image'
+            if rk == ResourceKind.EXTERNAL_LINK:
+                return 'link'
+            url = (rd.resource_url or '').lower()
+            ext = url.split('?')[0].rsplit('.', 1)[-1] if '.' in url.split('?')[0] else ''
+            if ext == 'pdf':
+                return 'pdf'
+            if ext in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'):
+                return 'image'
+            if ext in ('mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a'):
+                return 'audio'
         except Exception:
             pass
         return 'document'
     if entity.entity_type == EntityType.ARTICLE:
-        return 'document'
+        return 'text'
     if entity.entity_type == EntityType.LESSON:
         return 'document'
     return 'video'
@@ -448,6 +467,7 @@ class CourseDetailSerializer(serializers.Serializer):
             'modules': modules_data,
             'enrollment_status': enrollment_status,
             'reviews': reviews_data,
+            'responsible': BriefUserSerializer(settings_obj.responsible).data if settings_obj and settings_obj.responsible else None,
         }
 
 

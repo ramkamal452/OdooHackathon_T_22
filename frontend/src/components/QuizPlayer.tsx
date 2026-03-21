@@ -14,6 +14,8 @@ export interface QuizResultState {
   totalMarks: number;
   percentage: number;
   isPassed: boolean;
+  pointsEarned?: number;
+  totalPoints?: number;
   perQuestion: {
     questionId: number;
     correct: boolean;
@@ -21,6 +23,32 @@ export interface QuizResultState {
     marksAwarded?: number;
   }[];
   raw?: unknown;
+}
+
+const BADGE_TIERS = [
+  { name: 'Newbie', min: 20 },
+  { name: 'Explorer', min: 40 },
+  { name: 'Achiever', min: 60 },
+  { name: 'Specialist', min: 80 },
+  { name: 'Expert', min: 100 },
+  { name: 'Master', min: 120 },
+];
+
+function getNextBadge(points: number) {
+  for (const tier of BADGE_TIERS) {
+    if (points < tier.min) {
+      return { name: tier.name, remaining: tier.min - points, min: tier.min };
+    }
+  }
+  return null;
+}
+
+function getCurrentBadge(points: number) {
+  let current = 'None';
+  for (const tier of BADGE_TIERS) {
+    if (points >= tier.min) current = tier.name;
+  }
+  return current;
 }
 
 interface QuizPlayerProps {
@@ -87,6 +115,34 @@ export default function QuizPlayer({ questions, onSubmit }: QuizPlayerProps) {
               {result.isPassed ? 'Passed' : 'Not Passed'}
             </Badge>
             <Progress value={result.percentage} className="h-2 max-w-xs" />
+            {result.pointsEarned != null && result.pointsEarned > 0 && (
+              <div className="mt-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-center">
+                <p className="text-lg font-bold text-yellow-700 dark:text-yellow-400">
+                  +{result.pointsEarned} points earned!
+                </p>
+                <p className="text-xs text-yellow-600/80 dark:text-yellow-400/60">
+                  Points have been added to your profile
+                </p>
+              </div>
+            )}
+            {result.totalPoints != null && (
+              <div className="mt-2 space-y-2 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Current rank: <span className="font-semibold text-foreground">{getCurrentBadge(result.totalPoints)}</span>
+                </p>
+                {getNextBadge(result.totalPoints) && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      {getNextBadge(result.totalPoints)!.remaining} more points to <span className="font-medium text-primary">{getNextBadge(result.totalPoints)!.name}</span>
+                    </p>
+                    <Progress value={(result.totalPoints / getNextBadge(result.totalPoints)!.min) * 100} className="h-1.5 max-w-xs mx-auto" />
+                  </div>
+                )}
+                {!getNextBadge(result.totalPoints) && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">You&apos;ve reached the highest rank!</p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 

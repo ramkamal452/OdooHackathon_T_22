@@ -76,6 +76,26 @@ class CourseInviteView(APIView):
         return Response({'detail': 'Invitation sent.', 'id': mem.id}, status=status.HTTP_201_CREATED)
 
 
+class InviteAcceptView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        token = request.data.get('token', '')
+        if not token:
+            return Response({'detail': 'Token is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            membership = CourseMembership.objects.get(invite_token=token)
+        except CourseMembership.DoesNotExist:
+            return Response({'detail': 'Invalid or expired invitation.'}, status=status.HTTP_404_NOT_FOUND)
+        if membership.user and membership.user != request.user:
+            return Response({'detail': 'This invitation is for another user.'}, status=status.HTTP_403_FORBIDDEN)
+        membership.user = request.user
+        membership.membership_status = MembershipStatus.ACTIVE
+        membership.enrolled_at = timezone.now()
+        membership.save()
+        return Response({'detail': 'Invitation accepted. You are now enrolled.'})
+
+
 class CourseEnrollmentListView(APIView):
     permission_classes = [IsAuthenticated, IsInstructorOrAdmin]
 
@@ -97,6 +117,7 @@ class MyEnrollmentsView(APIView):
         mems = CourseMembership.objects.filter(
             user=request.user,
             membership_status__in=[MembershipStatus.ACTIVE, MembershipStatus.COMPLETED],
+            course_entity__deleted_at__isnull=True,
         ).select_related('course_entity')
         data = [MyEnrollmentSerializer.from_membership(m) for m in mems]
         return Response(data)
@@ -109,9 +130,9 @@ class InstructorDashboardView(APIView):
         user = request.user
         role = getattr(user, 'role', None)
         if role == 'admin':
-            courses = ContentEntity.objects.filter(entity_type=EntityType.COURSE)
+            courses = ContentEntity.objects.filter(entity_type=EntityType.COURSE, deleted_at__isnull=True)
         else:
-            courses = ContentEntity.objects.filter(entity_type=EntityType.COURSE, owner=user)
+            courses = ContentEntity.objects.filter(entity_type=EntityType.COURSE, owner=user, deleted_at__isnull=True)
         course_ids = list(courses.values_list('id', flat=True))
         enrollments = CourseMembership.objects.filter(course_entity_id__in=course_ids)
         total_courses = courses.count()
@@ -147,11 +168,18 @@ class LearnerDashboardView(APIView):
         mems = CourseMembership.objects.filter(
             user=request.user,
             membership_status__in=[MembershipStatus.ACTIVE, MembershipStatus.COMPLETED],
+            course_entity__deleted_at__isnull=True,
         ).select_related('course_entity')
         enrolled_courses = mems.count()
         in_progress = mems.filter(membership_status=MembershipStatus.ACTIVE, started_at__isnull=False).count()
         completed = mems.filter(membership_status=MembershipStatus.COMPLETED).count()
         total_points = request.user.points
+
+        from content.models import EntityTag
+        course_ids = [m.course_entity_id for m in mems]
+        tags_map: dict[int, str] = {}
+        for et in EntityTag.objects.filter(entity_id__in=course_ids).select_related('tag'):
+            tags_map.setdefault(et.entity_id, []).append(et.tag.name)
 
         enrollment_data = []
         for m in mems:
@@ -160,11 +188,13 @@ class LearnerDashboardView(APIView):
                 status_str = 'completed'
             elif m.started_at:
                 status_str = 'in_progress'
+            tag_names = tags_map.get(m.course_entity_id, [])
             enrollment_data.append({
                 'course_id': m.course_entity_id,
                 'course_title': m.course_entity.title,
                 'status': status_str,
                 'progress_percent': m.progress_percent,
+                'tags': ', '.join(tag_names) if tag_names else '',
             })
         return Response({
             'enrolled_courses': enrolled_courses,
@@ -222,6 +252,7 @@ class AdminEnrollmentListView(APIView):
                 'time_spent_seconds': m.time_spent_seconds,
                 'enrolled_at': m.enrolled_at,
                 'completed_at': m.completed_at,
+                'started_at': m.started_at,
             })
         if page is not None:
             return paginator.get_paginated_response(results)

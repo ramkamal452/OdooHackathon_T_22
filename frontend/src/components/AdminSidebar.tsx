@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import {
+  BarChart3,
   BookOpen,
   ChevronLeft,
   ClipboardList,
@@ -16,9 +17,9 @@ import {
   HelpCircle,
   Layers,
   LayoutDashboard,
+  PieChart,
   Settings,
   Users,
-  BarChart3,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -31,6 +32,7 @@ const sidebarLinks = [
   { href: '/admin/enrollments', label: 'Enrollments', icon: ClipboardList },
   { href: '/admin/lesson-progress', label: 'Lesson Progress', icon: BarChart3 },
   { href: '/admin/quizzes', label: 'Quizzes', icon: HelpCircle },
+  { href: '/admin/reporting', label: 'Reporting', icon: PieChart },
   { href: '/admin/content-manager', label: 'Content Manager', icon: LayoutDashboard },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];

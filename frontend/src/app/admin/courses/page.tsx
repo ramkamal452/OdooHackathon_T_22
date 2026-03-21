@@ -23,7 +23,7 @@ import { useAdminPage } from '@/app/admin/AdminPageContext';
 import { formatRelativeAgo } from '@/lib/admin-format';
 import { fetchPage } from '@/lib/admin-fetch';
 import { api, mediaUrl } from '@/lib/api';
-import { BookOpen, Clock, Edit, FileEdit, Filter, GraduationCap, Trash2 } from 'lucide-react';
+import { BookOpen, Clock, Copy, Edit, FileEdit, Filter, GraduationCap, LayoutGrid, List, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
@@ -34,6 +34,8 @@ interface CourseRow extends Record<string, unknown> {
   slug?: string;
   instructor_name?: string;
   category_name?: string | null;
+  tags?: string;
+  views_count?: number;
   level?: string;
   status?: string;
   lesson_count?: number;
@@ -57,6 +59,7 @@ export default function AdminCoursesPage() {
   const [page, setPage] = useState(1);
   const [tab, setTab] = useState<'all' | 'published' | 'draft'>('all');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [categoryId, setCategoryId] = useState('');
   const [level, setLevel] = useState('');
   const [loading, setLoading] = useState(true);
@@ -270,6 +273,27 @@ export default function AdminCoursesPage() {
         ),
     },
     {
+      key: 'tags',
+      header: 'Tags',
+      render: (r) => {
+        const tags = r.tags ? r.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
+        return tags.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {tags.map((tag: string) => (
+              <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+            ))}
+          </div>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        );
+      },
+    },
+    {
+      key: 'views',
+      header: 'Views',
+      render: (r) => <span className="text-foreground">{(r as { views_count?: number }).views_count ?? '—'}</span>,
+    },
+    {
       key: 'level',
       header: 'Level',
       render: (r) => <span className="capitalize text-foreground">{r.level || '—'}</span>,
@@ -299,6 +323,17 @@ export default function AdminCoursesPage() {
       className: 'w-28',
       render: (r) => (
         <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => {
+              navigator.clipboard.writeText(`${window.location.origin}/courses/${r.id}`);
+            }}
+            aria-label="Copy link"
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
           <Link
             href={`/dashboard/instructor/courses/${r.id}/edit`}
             aria-label="Edit course"
@@ -349,10 +384,20 @@ export default function AdminCoursesPage() {
             </Button>
           ))}
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={() => setFilterOpen((v) => !v)} className="gap-2">
-          <Filter className="h-4 w-4" />
-          Filter
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => setFilterOpen((v) => !v)} className="gap-2">
+            <Filter className="h-4 w-4" />
+            Filter
+          </Button>
+          <div className="flex gap-1 rounded-lg border p-1">
+            <Button type="button" variant={viewMode === 'list' ? 'default' : 'ghost'} size="icon-sm" onClick={() => setViewMode('list')} aria-label="List view">
+              <List className="h-4 w-4" />
+            </Button>
+            <Button type="button" variant={viewMode === 'kanban' ? 'default' : 'ghost'} size="icon-sm" onClick={() => setViewMode('kanban')} aria-label="Kanban view">
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </div>
       {filterOpen ? (
         <Card className="border-dashed">
@@ -386,15 +431,71 @@ export default function AdminCoursesPage() {
           </CardContent>
         </Card>
       ) : null}
-      <DataTable columns={columns} data={rows} loading={loading} emptyMessage="No courses found." />
-      <Pagination
-        currentPage={page}
-        totalPages={totalPages}
-        totalItems={total}
-        pageSize={PAGE_SIZE}
-        onPageChange={setPage}
-        itemName="courses"
-      />
+      {viewMode === 'list' ? (
+        <>
+          <DataTable columns={columns} data={rows} loading={loading} emptyMessage="No courses found." />
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            totalItems={total}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+            itemName="courses"
+          />
+        </>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {loading ? (
+            Array.from({ length: 6 }, (_, i) => (
+              <Card key={i} className="h-48 animate-pulse bg-muted" />
+            ))
+          ) : rows.length === 0 ? (
+            <p className="col-span-full text-center text-muted-foreground">No courses found.</p>
+          ) : (
+            rows.map((r) => {
+              const thumb = mediaUrl((r as { thumbnail?: string | null }).thumbnail);
+              const courseTags = (r as { tags?: string }).tags?.split(',').map((t: string) => t.trim()).filter(Boolean) || [];
+              return (
+                <Card key={r.id} className="overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5">
+                  <div className="aspect-video bg-muted relative">
+                    {thumb ? (
+                      <img src={thumb} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-muted-foreground/40">
+                        <BookOpen className="h-8 w-8" />
+                      </div>
+                    )}
+                    <div className="absolute top-2 right-2">
+                      {r.status === 'published' ? (
+                        <Badge variant="default" className="text-xs">Published</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs">Draft</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <CardContent className="p-4 space-y-2">
+                    <h3 className="font-semibold text-foreground truncate">{r.title}</h3>
+                    <p className="text-xs text-muted-foreground">{r.instructor_name || 'No instructor'}</p>
+                    {courseTags.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {courseTags.slice(0, 3).map((tag: string) => (
+                          <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between pt-2">
+                      <span className="text-xs text-muted-foreground">{r.lesson_count ?? 0} lessons</span>
+                      <Link href={`/dashboard/instructor/courses/${r.id}/edit`} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+                        Edit
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
+        </div>
+      )}
 
       <Modal
         open={modalOpen}

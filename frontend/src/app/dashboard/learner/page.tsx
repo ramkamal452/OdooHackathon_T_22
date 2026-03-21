@@ -4,13 +4,14 @@ import CourseCard from '@/components/CourseCard';
 import DashboardHeader from '@/components/DashboardHeader';
 import DashboardStats from '@/components/DashboardStats';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Badge as BadgeType, CourseListItem, PointLedgerEntry, api, unwrapList } from '@/lib/api';
-import { Award, BookOpen, TrendingUp, Trophy, Zap } from 'lucide-react';
+import { Award, BookOpen, Search, TrendingUp, Trophy, Zap } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 interface LearnerDashboard {
   enrolled_courses?: number;
@@ -30,6 +31,16 @@ export default function LearnerDashboardPage() {
   const [badges, setBadges] = useState<{ badge: BadgeType; awarded_at: string }[]>([]);
   const [points, setPoints] = useState<PointLedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  const filteredEnrollments = useMemo(() => {
+    const enrollments = data?.enrollments ?? [];
+    if (!search.trim()) return enrollments;
+    const q = search.toLowerCase();
+    return enrollments.filter((e: any) =>
+      (e.course_title || e.title || '').toLowerCase().includes(q)
+    );
+  }, [data?.enrollments, search]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -122,8 +133,18 @@ export default function LearnerDashboardPage() {
 
             <div>
               <h2 className="text-xl font-semibold">Your Courses</h2>
+              <div className="relative mt-4">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search your courses…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
               <div className="mt-6 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                {(data.enrollments ?? []).map((en, idx) => {
+                {filteredEnrollments.map((en, idx) => {
                   const courseObj: CourseListItem = {
                     id: en.course_id,
                     title: en.course_title,
@@ -139,14 +160,20 @@ export default function LearnerDashboardPage() {
                   );
                 })}
               </div>
-              {(data.enrollments ?? []).length === 0 && (
+              {filteredEnrollments.length === 0 && (
                 <div className="flex flex-col items-center py-12 text-center">
                   <BookOpen className="h-12 w-12 text-muted-foreground/40" />
-                  <p className="mt-4 text-lg font-medium">No courses yet</p>
-                  <p className="mt-1 text-muted-foreground">Start your learning journey today.</p>
-                  <Button asChild className="mt-4">
-                    <Link href="/courses">Browse Courses</Link>
-                  </Button>
+                  {search.trim() && (data.enrollments ?? []).length > 0 ? (
+                    <p className="mt-4 text-lg font-medium">No courses match your search.</p>
+                  ) : (
+                    <>
+                      <p className="mt-4 text-lg font-medium">No courses yet</p>
+                      <p className="mt-1 text-muted-foreground">Start your learning journey today.</p>
+                      <Button asChild className="mt-4">
+                        <Link href="/courses">Browse Courses</Link>
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
             </div>

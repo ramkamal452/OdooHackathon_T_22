@@ -162,12 +162,15 @@ def _create_entity_detail(entity, data, files, user):
 
     if entity.entity_type == EntityType.VIDEO:
         video_url = data.get('video_url', '')
+        video_asset = None
         if file_obj:
             asset = _upload_file(file_obj, user)
             video_url = asset.url
+            video_asset = asset
         VideoContent.objects.create(
             entity=entity,
             video_url=video_url,
+            video_asset=video_asset,
             allow_download=_parse_bool(data.get('allow_download', False)),
             duration_seconds=int(data.get('duration_seconds', 0) or 0),
         )
@@ -215,10 +218,16 @@ def _update_entity_detail(entity, data, files, user):
     if entity.entity_type == EntityType.VIDEO:
         vd, _ = VideoContent.objects.get_or_create(entity=entity)
         if file_obj:
+            old_asset = vd.video_asset
             asset = _upload_file(file_obj, user)
             vd.video_url = asset.url
-        elif 'video_url' in data:
-            vd.video_url = data['video_url']
+            vd.video_asset = asset
+            vd.save()
+            if old_asset:
+                old_asset.delete()
+        else:
+            if 'video_url' in data:
+                vd.video_url = data['video_url']
         if 'allow_download' in data:
             vd.allow_download = _parse_bool(data['allow_download'])
         if 'duration_seconds' in data:
@@ -228,9 +237,13 @@ def _update_entity_detail(entity, data, files, user):
     elif entity.entity_type == EntityType.RESOURCE:
         rd, _ = ResourceContent.objects.get_or_create(entity=entity)
         if file_obj:
+            old_asset = rd.asset
             asset = _upload_file(file_obj, user)
             rd.resource_url = asset.url
             rd.asset = asset
+            rd.save()
+            if old_asset:
+                old_asset.delete()
         elif 'resource_url' in data:
             rd.resource_url = data['resource_url']
         if 'resource_kind' in data:
@@ -412,6 +425,25 @@ class EntityDetailView(APIView):
 
     def delete(self, request, pk):
         entity = get_object_or_404(ContentEntity, pk=pk)
+        # Clean up associated assets before deletion
+        if entity.entity_type == EntityType.VIDEO:
+            try:
+                vd = entity.video_detail
+                if vd.video_asset:
+                    vd.video_asset.delete()
+            except Exception:
+                pass
+        elif entity.entity_type == EntityType.RESOURCE:
+            try:
+                rd = entity.resource_detail
+                if rd.asset:
+                    rd.asset.delete()
+            except Exception:
+                pass
+        # Clean up attachments
+        for att in entity.attachments.all():
+            if att.asset:
+                att.asset.delete()
         entity.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -530,6 +562,8 @@ class EntityAttachmentDeleteView(APIView):
 
     def delete(self, request, pk):
         att = get_object_or_404(ContentAttachment, pk=pk)
+        if att.asset:
+            att.asset.delete()
         att.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 

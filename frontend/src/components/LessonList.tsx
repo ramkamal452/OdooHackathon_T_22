@@ -10,6 +10,7 @@ import {
   Play,
   File,
   Image,
+  Music,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -18,6 +19,7 @@ interface LessonListProps {
   currentLessonId?: number;
   onSelect: (lesson: LessonItem) => void;
   completedMap?: Map<number, boolean>;
+  searchQuery?: string;
 }
 
 const contentIcons: Record<string, React.ElementType> = {
@@ -27,6 +29,7 @@ const contentIcons: Record<string, React.ElementType> = {
   link: LinkIcon,
   document: File,
   image: Image,
+  audio: Music,
 };
 
 export default function LessonList({
@@ -34,7 +37,9 @@ export default function LessonList({
   currentLessonId,
   onSelect,
   completedMap = new Map(),
+  searchQuery = '',
 }: LessonListProps) {
+  const query = searchQuery.toLowerCase().trim();
   const sortedMods = [...modules].sort((a, b) => a.sort_order - b.sort_order);
   const [expanded, setExpanded] = useState<Set<number>>(
     new Set(sortedMods.map((m) => m.id))
@@ -52,9 +57,13 @@ export default function LessonList({
   return (
     <div className="space-y-2">
       {sortedMods.map((mod) => {
-        const lessons = [...(mod.lessons || [])].sort(
+        const allLessons = [...(mod.lessons || [])].sort(
           (a, b) => a.sort_order - b.sort_order
         );
+        const lessons = query
+          ? allLessons.filter((l) => l.title.toLowerCase().includes(query))
+          : allLessons;
+        if (query && lessons.length === 0) return null;
         const isOpen = expanded.has(mod.id);
 
         return (

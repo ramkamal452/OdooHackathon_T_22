@@ -51,7 +51,10 @@ from .serializers import (
 # ---------------------------------------------------------------------------
 
 def _course_qs(user):
-    qs = ContentEntity.objects.filter(entity_type=EntityType.COURSE).select_related(
+    qs = ContentEntity.objects.filter(
+        entity_type=EntityType.COURSE,
+        deleted_at__isnull=True,
+    ).select_related(
         'owner', 'thumbnail_asset', 'course_settings',
     )
     role = getattr(user, 'role', None)
@@ -243,7 +246,7 @@ class CourseDetailView(APIView):
     def get(self, request, pk):
         entity = get_object_or_404(
             ContentEntity.objects.select_related('owner', 'thumbnail_asset', 'course_settings'),
-            pk=pk, entity_type=EntityType.COURSE,
+            pk=pk, entity_type=EntityType.COURSE, deleted_at__isnull=True,
         )
         if not can_view_entity(request.user, entity):
             raise NotFound()
@@ -290,6 +293,17 @@ class CourseDetailView(APIView):
             settings_obj.price = data['price'] or None
         if 'website' in data:
             settings_obj.website = data['website'] or ''
+        if 'responsible' in data:
+            resp_id = data.get('responsible')
+            if resp_id:
+                try:
+                    from django.contrib.auth import get_user_model
+                    User = get_user_model()
+                    settings_obj.responsible = User.objects.get(pk=int(resp_id))
+                except (User.DoesNotExist, ValueError, TypeError):
+                    pass
+            else:
+                settings_obj.responsible = None
         settings_obj.save()
 
         if 'category' in data:
@@ -523,8 +537,13 @@ class LessonDetailView(APIView):
         if entity.entity_type == EntityType.VIDEO:
             vd, _ = VideoContent.objects.get_or_create(entity=entity)
             if file_obj:
+                old_asset = vd.video_asset
                 asset = _create_file_asset(file_obj, request.user)
                 vd.video_url = asset.url
+                vd.video_asset = asset
+                vd.save()
+                if old_asset:
+                    old_asset.delete()
             elif 'video_url' in data:
                 vd.video_url = data['video_url']
             if 'allow_download' in data:
@@ -538,9 +557,13 @@ class LessonDetailView(APIView):
         elif entity.entity_type == EntityType.RESOURCE:
             rd, _ = ResourceContent.objects.get_or_create(entity=entity)
             if file_obj:
+                old_asset = rd.asset
                 asset = _create_file_asset(file_obj, request.user)
                 rd.resource_url = asset.url
                 rd.asset = asset
+                rd.save()
+                if old_asset:
+                    old_asset.delete()
             elif 'resource_url' in data:
                 rd.resource_url = data['resource_url']
             if 'allow_download' in data:
@@ -823,11 +846,30 @@ class AdminCategoryListView(APIView):
 
 def _content_type_label(entity):
     if entity.entity_type == EntityType.VIDEO:
+        try:
+            vd = entity.video_detail
+            url = (vd.video_url or '').lower()
+            ext = url.split('?')[0].rsplit('.', 1)[-1] if '.' in url.split('?')[0] else ''
+            if ext in ('mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a', 'wma'):
+                return 'audio'
+        except Exception:
+            pass
         return 'video'
     if entity.entity_type == EntityType.RESOURCE:
         try:
-            if entity.resource_detail.resource_kind == ResourceKind.IMAGE:
+            rd = entity.resource_detail
+            if rd.resource_kind == ResourceKind.IMAGE:
                 return 'image'
+            if rd.resource_kind == ResourceKind.EXTERNAL_LINK:
+                return 'link'
+            url = (rd.resource_url or '').lower()
+            ext = url.split('?')[0].rsplit('.', 1)[-1] if '.' in url.split('?')[0] else ''
+            if ext == 'pdf':
+                return 'pdf'
+            if ext in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'):
+                return 'image'
+            if ext in ('mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a'):
+                return 'audio'
         except Exception:
             pass
         return 'document'
@@ -847,7 +889,7 @@ def _parse_bool(val, default=False):
 
 
 def _entity_type_for_content(content_type):
-    if content_type == 'video':
+    if content_type in ('video', 'audio'):
         return EntityType.VIDEO
     return EntityType.RESOURCE
 
@@ -881,12 +923,15 @@ def _create_lesson_entity(data, files, user, parent_entity):
 
     if etype == EntityType.VIDEO:
         video_url = data.get('video_url', '')
+        video_asset = None
         if file_obj:
             asset = _create_file_asset(file_obj, user)
             video_url = asset.url
+            video_asset = asset
         VideoContent.objects.create(
             entity=entity,
             video_url=video_url,
+            video_asset=video_asset,
             allow_download=_parse_bool(data.get('allow_download', False)),
             duration_seconds=(int(dur) * 60) if dur else 0,
         )
@@ -1014,6 +1059,8 @@ class AttachmentDetailView(APIView):
         course = _find_course_for_child(entity)
         if course and not can_manage_entity(request.user, course):
             raise PermissionDenied()
+        if attachment.asset:
+            attachment.asset.delete()
         attachment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 

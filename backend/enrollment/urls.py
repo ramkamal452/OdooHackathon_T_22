@@ -6,12 +6,14 @@ from .views import (
     CourseEnrollmentListView,
     CourseEnrollView,
     CourseInviteView,
+    InviteAcceptView,
     InstructorDashboardView,
     LearnerDashboardView,
     MyEnrollmentsView,
 )
 
 urlpatterns = [
+    path('invite/accept/', InviteAcceptView.as_view(), name='invite-accept'),
     path('courses/<int:pk>/enroll/', CourseEnrollView.as_view(), name='course-enroll'),
     path('courses/<int:pk>/invite/', CourseInviteView.as_view(), name='course-invite'),
     path('courses/<int:pk>/enrollments/', CourseEnrollmentListView.as_view(), name='course-enrollments'),

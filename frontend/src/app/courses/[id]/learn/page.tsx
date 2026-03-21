@@ -9,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { CourseDetail, LessonItem, api, mediaUrl, unwrapList } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { ArrowLeft, CheckCircle2, ChevronRight } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ChevronRight, Download, Paperclip } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -44,6 +44,8 @@ export default function LearnPage() {
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [textContent, setTextContent] = useState('');
+  const [textLoaded, setTextLoaded] = useState(false);
 
   const lessonParam = searchParams.get('lesson');
 
@@ -80,6 +82,25 @@ export default function LearnPage() {
   }, [courseId, lessonParam, user, router]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    setTextContent('');
+    setTextLoaded(false);
+    if (!lesson) return;
+    const resUrl = lesson.resource_url || '';
+    const vidUrl = lesson.video_url || '';
+    const url = resUrl || vidUrl;
+    if (!url) return;
+    const ext = url.split('?')[0].split('.').pop()?.toLowerCase() || '';
+    const needsFetch = ['txt', 'text', 'log', 'json', 'xml', 'yaml', 'yml', 'csv', 'md', 'markdown'].includes(ext);
+    if (needsFetch) {
+      const fullUrl = url.startsWith('http') ? url : url;
+      fetch(fullUrl)
+        .then((r) => r.ok ? r.text() : Promise.reject())
+        .then((t) => { setTextContent(t); setTextLoaded(true); })
+        .catch(() => setTextLoaded(true));
+    }
+  }, [lesson]);
 
   const completedMap = useMemo(() => {
     const m = new Map<number, boolean>();
@@ -136,11 +157,16 @@ export default function LearnPage() {
 
   if (error && !course) {
     return (
-      <div className="p-8 text-center">
-        <p className="text-destructive">{error}</p>
-        <Button variant="link" asChild className="mt-4">
-          <Link href={`/courses/${courseId}`}>Back to course</Link>
-        </Button>
+      <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 py-16 text-center">
+        <div className="rounded-lg border bg-card p-8 shadow-sm max-w-md">
+          <h2 className="text-lg font-semibold text-foreground mb-2">Course Unavailable</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            This course may have been removed, or you may not have permission to view it.
+          </p>
+          <Button asChild>
+            <Link href="/courses">Browse Courses</Link>
+          </Button>
+        </div>
       </div>
     );
   }
@@ -157,6 +183,26 @@ export default function LearnPage() {
   }
 
   const resource = mediaUrl(lesson.resource_url);
+  const videoSrc = lesson.video_url || '';
+  const allAttachments = (lesson.attachments || []).map((att) => ({
+    ...att,
+    href: att.file_url || att.file || att.external_url || att.url || '#',
+  }));
+
+  const isDirectVideo = /\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(videoSrc);
+  const isEmbed = /youtube\.com|youtu\.be|vimeo\.com|dailymotion\.com|wistia\.com/i.test(videoSrc);
+  const audioExtRegex = /\.(mp3|wav|ogg|aac|flac|m4a|wma)(\?|$)/i;
+  const isDirectAudio = lesson.content_type === 'audio' || audioExtRegex.test(videoSrc) || audioExtRegex.test(resource || '');
+  const audioSrc = isDirectAudio ? (videoSrc || resource || '') : '';
+
+  const fileExt = (resource || videoSrc || '').split('?')[0].split('.').pop()?.toLowerCase() || '';
+  const isPdf = fileExt === 'pdf' || lesson.content_type === 'pdf';
+  const isImage = lesson.content_type === 'image' || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff'].includes(fileExt);
+  const isCsv = fileExt === 'csv';
+  const isMarkdown = ['md', 'markdown'].includes(fileExt);
+  const isText = ['txt', 'text', 'log', 'json', 'xml', 'yaml', 'yml'].includes(fileExt) || lesson.content_type === 'text';
+  const isDocx = ['doc', 'docx'].includes(fileExt);
+  const isExcel = ['xls', 'xlsx'].includes(fileExt);
 
   return (
     <>
@@ -187,28 +233,205 @@ export default function LearnPage() {
         <div className="flex-1 overflow-auto">
           <div className="mx-auto max-w-4xl px-4 py-8 sm:px-8">
             <Card>
-              <CardContent className="p-6">
-                {lesson.content_type === 'video' && lesson.video_url && (
+              <CardContent className="p-6 space-y-4">
+                {/* VIDEO: direct S3 mp4/webm/ogg → <video>, YouTube/Vimeo → <iframe> */}
+                {lesson.content_type === 'video' && videoSrc && !isDirectAudio && (
                   <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
-                    <iframe
-                      title={lesson.title}
-                      src={lesson.video_url}
-                      className="h-full w-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
+                    {isDirectVideo ? (
+                      <video
+                        key={videoSrc}
+                        controls
+                        controlsList={lesson.allow_download ? undefined : 'nodownload'}
+                        className="h-full w-full"
+                        preload="metadata"
+                      >
+                        <source src={videoSrc} />
+                        Your browser does not support the video tag.
+                      </video>
+                    ) : isEmbed ? (
+                      <iframe
+                        title={lesson.title}
+                        src={videoSrc.replace('watch?v=', 'embed/').replace('youtu.be/', 'www.youtube.com/embed/')}
+                        className="h-full w-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <video
+                        key={videoSrc}
+                        controls
+                        className="h-full w-full"
+                        preload="metadata"
+                      >
+                        <source src={videoSrc} />
+                      </video>
+                    )}
                   </div>
                 )}
-                {lesson.content_type === 'text' && (
-                  <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <p className="whitespace-pre-wrap">{lesson.content_body}</p>
+
+                {/* AUDIO: mp3/wav/ogg/aac */}
+                {isDirectAudio && audioSrc && (
+                  <div className="rounded-lg border bg-muted/50 p-6 space-y-3">
+                    <p className="text-sm font-medium text-foreground">Audio Player</p>
+                    <audio
+                      key={audioSrc}
+                      controls
+                      className="w-full"
+                      preload="metadata"
+                    >
+                      <source src={audioSrc} />
+                      Your browser does not support the audio element.
+                    </audio>
                   </div>
                 )}
-                {lesson.content_type === 'pdf' && resource && (
-                  <Button variant="outline" asChild>
-                    <a href={resource} target="_blank" rel="noreferrer">Open PDF</a>
-                  </Button>
+
+                {/* IMAGE: jpg/png/gif/webp/svg from S3 */}
+                {isImage && resource && (
+                  <div className="space-y-3">
+                    <div className="flex justify-center rounded-lg border bg-muted/50 p-4">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={resource}
+                        alt={lesson.title}
+                        className="max-h-[600px] max-w-full rounded-lg object-contain"
+                      />
+                    </div>
+                    {lesson.allow_download && (
+                      <div className="flex justify-end">
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={resource} target="_blank" rel="noreferrer" download>
+                            <Download className="mr-1.5 h-4 w-4" />Download Image
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 )}
+
+                {/* PDF: inline viewer with iframe */}
+                {isPdf && resource && !isImage && (
+                  <div className="space-y-3">
+                    <div className="aspect-[3/4] w-full overflow-hidden rounded-lg border bg-muted">
+                      <iframe title={lesson.title} src={resource} className="h-full w-full" />
+                    </div>
+                    <div className="flex justify-end">
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={resource} target="_blank" rel="noreferrer" download>
+                          <Download className="mr-1.5 h-4 w-4" />Download PDF
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* CSV: parse and render as table */}
+                {isCsv && textLoaded && textContent && (
+                  <div className="space-y-3">
+                    <div className="overflow-x-auto rounded-lg border">
+                      <table className="w-full text-sm">
+                        {textContent.split('\n').filter(Boolean).map((row, ri) => {
+                          const cells = row.split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
+                          const Tag = ri === 0 ? 'th' : 'td';
+                          return (
+                            <tr key={ri} className={ri === 0 ? 'bg-muted font-medium' : 'border-t'}>
+                              {cells.map((cell, ci) => (
+                                <Tag key={ci} className="px-3 py-2 text-left">{cell}</Tag>
+                              ))}
+                            </tr>
+                          );
+                        })}
+                      </table>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={resource || videoSrc} target="_blank" rel="noreferrer" download>
+                          <Download className="mr-1.5 h-4 w-4" />Download CSV
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* MARKDOWN: render as formatted text */}
+                {isMarkdown && textLoaded && textContent && (
+                  <div className="space-y-3">
+                    <div className="prose prose-sm max-w-none dark:prose-invert rounded-lg border bg-card p-6">
+                      <pre className="whitespace-pre-wrap font-sans">{textContent}</pre>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={resource || videoSrc} target="_blank" rel="noreferrer" download>
+                          <Download className="mr-1.5 h-4 w-4" />Download
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* TEXT/JSON/XML/TXT: display as preformatted */}
+                {isText && !isCsv && !isMarkdown && (
+                  <div className="space-y-3">
+                    <div className="prose prose-sm max-w-none dark:prose-invert">
+                      <pre className="whitespace-pre-wrap rounded-lg border bg-muted/50 p-4 text-sm">
+                        {textLoaded ? (textContent || lesson.content_body || 'No content') : lesson.content_body || ''}
+                      </pre>
+                    </div>
+                    {resource && (
+                      <div className="flex justify-end">
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={resource} target="_blank" rel="noreferrer" download>
+                            <Download className="mr-1.5 h-4 w-4" />Download
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* DOCX / EXCEL: download + Google Docs viewer fallback */}
+                {(isDocx || isExcel) && resource && (
+                  <div className="space-y-3">
+                    <div className="aspect-[3/4] w-full overflow-hidden rounded-lg border bg-muted">
+                      <iframe
+                        title={lesson.title}
+                        src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(resource)}`}
+                        className="h-full w-full"
+                      />
+                    </div>
+                    <div className="flex justify-end">
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={resource} target="_blank" rel="noreferrer" download>
+                          <Download className="mr-1.5 h-4 w-4" />Download {isDocx ? 'Document' : 'Spreadsheet'}
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* GENERIC DOCUMENT (content_type === 'document') with no special extension: show body + download */}
+                {lesson.content_type === 'document' && !isPdf && !isImage && !isCsv && !isMarkdown && !isText && !isDocx && !isExcel && !isDirectAudio && (
+                  <div className="space-y-3">
+                    {lesson.content_body && (
+                      <div className="prose prose-sm max-w-none dark:prose-invert">
+                        <p className="whitespace-pre-wrap">{lesson.content_body}</p>
+                      </div>
+                    )}
+                    {resource && (
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={resource} target="_blank" rel="noreferrer">View File</a>
+                        </Button>
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={resource} target="_blank" rel="noreferrer" download>
+                            <Download className="mr-1.5 h-4 w-4" />Download
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* LINK type */}
                 {lesson.content_type === 'link' && (
                   <div className="space-y-2">
                     {resource && (
@@ -221,8 +444,35 @@ export default function LearnPage() {
                     )}
                   </div>
                 )}
+
+                {/* Fallback: body text when nothing else matched and there is content */}
+                {!lesson.content_type && lesson.content_body && (
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <p className="whitespace-pre-wrap">{lesson.content_body}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
+
+            {/* Attachments */}
+            {allAttachments.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <h4 className="text-sm font-semibold text-muted-foreground">Attachments</h4>
+                {allAttachments.map((att) => (
+                  <a
+                    key={att.id}
+                    href={att.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors hover:bg-muted"
+                  >
+                    <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate">{att.title}</span>
+                    <Download className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  </a>
+                ))}
+              </div>
+            )}
 
             <div className="mt-6 flex flex-wrap gap-3">
               <Button

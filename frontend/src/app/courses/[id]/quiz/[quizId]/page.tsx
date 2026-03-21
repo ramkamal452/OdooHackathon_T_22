@@ -33,7 +33,9 @@ function parseAttemptResult(
     return { questionId: q.id, correct, selectedOptionId, marksAwarded: row?.marks_awarded };
   });
 
-  return { score, totalMarks, percentage, isPassed, perQuestion, raw: data };
+  const pointsEarned = Number(obj.points_earned ?? 0);
+  const totalPoints = obj.total_points != null ? Number(obj.total_points) : undefined;
+  return { score, totalMarks, percentage, isPassed, pointsEarned, totalPoints, perQuestion, raw: data };
 }
 
 export default function QuizPage() {
@@ -74,11 +76,16 @@ export default function QuizPage() {
 
   if (error || !quiz) {
     return (
-      <div className="px-4 py-16 text-center">
-        <p className="text-destructive">{error || 'Unavailable'}</p>
-        <Button variant="link" asChild className="mt-4">
-          <Link href={`/courses/${courseId}`}>Back to course</Link>
-        </Button>
+      <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 py-16 text-center">
+        <div className="rounded-lg border bg-card p-8 shadow-sm max-w-md">
+          <h2 className="text-lg font-semibold text-foreground mb-2">Quiz Unavailable</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            This quiz may have been removed, or you may not have permission to access it.
+          </p>
+          <Button asChild>
+            <Link href={`/courses/${courseId}`}>Back to Course</Link>
+          </Button>
+        </div>
       </div>
     );
   }

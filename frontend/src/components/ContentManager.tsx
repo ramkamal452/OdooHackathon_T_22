@@ -16,16 +16,42 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import {
   ChevronDown,
   ChevronRight,
+  GripVertical,
   Plus,
   Trash2,
   Upload,
   X,
   Link2,
+  MoreVertical,
 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 /* ================================================================
    Types
@@ -76,6 +102,8 @@ interface TreeNode {
   attachments?: Attachment[];
   duration_seconds?: number;
   allow_download?: boolean;
+  responsible_id?: number;
+  responsible_name?: string;
   created_at?: string;
 }
 
@@ -87,7 +115,7 @@ const ENTITY_TYPES = [
   { value: 'lesson', label: 'Lesson', icon: '📝', badgeVariant: 'default' as const },
   { value: 'quiz', label: 'Quiz', icon: '❓', badgeVariant: 'secondary' as const },
   { value: 'video', label: 'Video', icon: '🎬', badgeVariant: 'destructive' as const },
-  { value: 'resource', label: 'Resource', icon: '📎', badgeVariant: 'outline' as const },
+  { value: 'resource', label: 'Resource', icon: '📁', badgeVariant: 'outline' as const },
 ] as const;
 
 const TYPE_META: Record<string, { icon: string; badgeVariant: EntityBadgeVariant; label: string }> = {};
@@ -320,6 +348,49 @@ export default function ContentManager({ rootId, rootType }: ContentManagerProps
     }
   };
 
+  const reorderChildren = useCallback(async (parentId: number, orderedChildIds: number[]) => {
+    const reorderInTree = (nodes: TreeNode[]): TreeNode[] =>
+      nodes.map((n) => {
+        if (n.id === parentId && n.children) {
+          const childMap = new Map(n.children.map((c) => [c.id, c]));
+          const reordered = orderedChildIds.map((cid) => childMap.get(cid)).filter(Boolean) as TreeNode[];
+          const rest = n.children.filter((c) => !orderedChildIds.includes(c.id));
+          return { ...n, children: [...reordered, ...rest] };
+        }
+        if (n.children) return { ...n, children: reorderInTree(n.children) };
+        return n;
+      });
+    setTree((prev) => reorderInTree(prev));
+    try {
+      await api.put(`/api/cm/entities/${parentId}/reorder/`, { order: orderedChildIds });
+    } catch {
+      setError('Reorder failed.');
+      await loadTree();
+    }
+  }, [loadTree]);
+
+  const reorderTopLevel = useCallback(async (orderedIds: number[]) => {
+    setTree((prev) => {
+      const map = new Map(prev.map((n) => [n.id, n]));
+      const reordered = orderedIds.map((id) => map.get(id)).filter(Boolean) as TreeNode[];
+      const rest = prev.filter((n) => !orderedIds.includes(n.id));
+      return [...reordered, ...rest];
+    });
+    if (rootId) {
+      try {
+        await api.put(`/api/cm/entities/${rootId}/reorder/`, { order: orderedIds });
+      } catch {
+        setError('Reorder failed.');
+        await loadTree();
+      }
+    }
+  }, [rootId, loadTree]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
   /* ── Render ── */
   if (loading) {
     return (
@@ -359,21 +430,57 @@ export default function ContentManager({ rootId, rootType }: ContentManagerProps
                 {tree.length === 0 && (
                   <p className="text-sm text-muted-foreground">No content yet. Create something above.</p>
                 )}
-                {tree.map((node) => (
-                  <TreeItem
-                    key={node.id}
-                    node={node}
-                    depth={0}
-                    expanded={expanded}
-                    selectedId={selected?.id ?? null}
-                    onToggle={toggleExpand}
-                    onSelect={selectNode}
-                    onDelete={requestDelete}
-                    onDetach={detachChild}
-                    onAddChild={addChild}
-                    saving={saving}
-                  />
-                ))}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={(event: DragEndEvent) => {
+                    const { active, over } = event;
+                    if (!over || active.id === over.id) return;
+                    const parentId = (active.data?.current as Record<string, unknown>)?.parentId as number | undefined;
+                    const siblings = parentId
+                      ? (function findChildren(nodes: TreeNode[]): TreeNode[] {
+                          for (const n of nodes) {
+                            if (n.id === parentId) return n.children || [];
+                            if (n.children) {
+                              const found = findChildren(n.children);
+                              if (found.length) return found;
+                            }
+                          }
+                          return [];
+                        })(tree)
+                      : tree;
+                    const ids = siblings.map((n) => n.id);
+                    const oldIdx = ids.indexOf(Number(active.id));
+                    const newIdx = ids.indexOf(Number(over.id));
+                    if (oldIdx === -1 || newIdx === -1) return;
+                    const newOrder = arrayMove(ids, oldIdx, newIdx);
+                    if (parentId) {
+                      reorderChildren(parentId, newOrder);
+                    } else {
+                      reorderTopLevel(newOrder);
+                    }
+                  }}
+                >
+                  <SortableContext items={tree.map((n) => n.id)} strategy={verticalListSortingStrategy}>
+                    {tree.map((node) => (
+                      <SortableTreeItem
+                        key={node.id}
+                        node={node}
+                        depth={0}
+                        expanded={expanded}
+                        selectedId={selected?.id ?? null}
+                        onToggle={toggleExpand}
+                        onSelect={selectNode}
+                        onDelete={requestDelete}
+                        onDetach={detachChild}
+                        onAddChild={addChild}
+                        saving={saving}
+                        sensors={sensors}
+                        onReorder={reorderChildren}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               </div>
             </ScrollArea>
           </CardContent>
@@ -391,6 +498,7 @@ export default function ContentManager({ rootId, rootType }: ContentManagerProps
                 onUpload={uploadAttachment}
                 onDeleteAttachment={deleteAttachment}
                 onAddChild={addChild}
+                onReorder={reorderChildren}
                 saving={saving}
               />
             ) : (
@@ -482,12 +590,10 @@ function CreateBar({ parentId, onSubmit, saving }: {
 }
 
 /* ================================================================
-   Tree Item — recursive
+   Sortable Tree Item — recursive with drag-and-drop
    ================================================================ */
 
-function TreeItem({
-  node, depth, expanded, selectedId, onToggle, onSelect, onDelete, onDetach, onAddChild, saving, parentId,
-}: {
+interface SortableTreeItemProps {
   node: TreeNode;
   depth: number;
   expanded: Set<number>;
@@ -499,7 +605,31 @@ function TreeItem({
   onAddChild: (parentId: number, childType: string, title: string, extra?: Record<string, unknown>, file?: File) => Promise<void>;
   saving: boolean;
   parentId?: number;
-}) {
+  sensors: ReturnType<typeof useSensors>;
+  onReorder: (parentId: number, orderedChildIds: number[]) => void;
+}
+
+function SortableTreeItem(props: SortableTreeItemProps) {
+  const { node, depth, expanded, selectedId, onToggle, onSelect, onDelete, onDetach, onAddChild, saving, parentId, sensors, onReorder } = props;
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: node.id,
+    data: { parentId },
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
   const meta = TYPE_META[node.entity_type] || { icon: '📄', label: node.entity_type, badgeVariant: 'outline' as EntityBadgeVariant };
   const hasChildren = (node.children && node.children.length > 0) || (node.children_count && node.children_count > 0);
   const isExpanded = expanded.has(node.id);
@@ -522,9 +652,10 @@ function TreeItem({
   const addTypeSelectValue = addType || '__none__';
 
   return (
-    <div>
+    <div ref={setNodeRef} style={style} {...attributes}>
       <div
         role="treeitem"
+        aria-selected={isSelected}
         tabIndex={0}
         aria-label={`${meta.label}: ${node.title}`}
         className={`group flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-sm transition-all hover:bg-muted/50 ${isSelected ? 'bg-primary/10 ring-1 ring-primary/30' : ''}`}
@@ -532,6 +663,13 @@ function TreeItem({
         onClick={() => onSelect(node)}
         onKeyDown={(e) => { if (e.key === 'Enter') onSelect(node); }}
       >
+        <span
+          className="mr-0.5 cursor-grab touch-none text-muted-foreground/60 hover:text-muted-foreground active:cursor-grabbing"
+          {...listeners}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="size-3.5" />
+        </span>
         {isContainer || hasChildren ? (
           <Button
             type="button"
@@ -550,42 +688,28 @@ function TreeItem({
         <Badge variant={meta.badgeVariant} className="text-[10px] font-semibold uppercase">
           {meta.label}
         </Badge>
-        <div className="ml-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-          {isContainer && allowedChildren.length > 0 && (
-            <Button
-              type="button"
-              title="Add child"
-              variant="ghost"
-              size="icon-xs"
-              className="text-primary hover:bg-primary/10"
-              onClick={(e) => { e.stopPropagation(); setShowAdd(!showAdd); }}
-            >
-              <Plus className="size-3.5" />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="ghost" size="icon-xs" className="ml-1 opacity-0 group-hover:opacity-100">
+              <MoreVertical className="size-3.5" />
             </Button>
-          )}
-          {parentId && onDetach && (
-            <Button
-              type="button"
-              title="Detach"
-              variant="ghost"
-              size="icon-xs"
-              className="text-amber-600 hover:bg-amber-500/10 dark:text-amber-400"
-              onClick={(e) => { e.stopPropagation(); onDetach(parentId, node.id); }}
-            >
-              <Link2 className="size-3.5" />
-            </Button>
-          )}
-          <Button
-            type="button"
-            title="Delete"
-            variant="ghost"
-            size="icon-xs"
-            className="text-destructive hover:bg-destructive/10"
-            onClick={(e) => { e.stopPropagation(); onDelete(node.id, parentId); }}
-          >
-            <Trash2 className="size-3.5" />
-          </Button>
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {isContainer && allowedChildren.length > 0 && (
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShowAdd(!showAdd); }}>
+                <Plus className="mr-2 size-3.5" /> Add child
+              </DropdownMenuItem>
+            )}
+            {parentId && onDetach && (
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDetach(parentId, node.id); }}>
+                <Link2 className="mr-2 size-3.5" /> Detach
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(node.id, parentId); }}>
+              <Trash2 className="mr-2 size-3.5" /> Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {showAdd && (
@@ -621,22 +745,42 @@ function TreeItem({
         </form>
       )}
 
-      {isExpanded && node.children?.map((child) => (
-        <TreeItem
-          key={child.id}
-          node={child}
-          depth={depth + 1}
-          expanded={expanded}
-          selectedId={selectedId}
-          onToggle={onToggle}
-          onSelect={onSelect}
-          onDelete={onDelete}
-          onDetach={onDetach}
-          onAddChild={onAddChild}
-          saving={saving}
-          parentId={node.id}
-        />
-      ))}
+      {isExpanded && node.children && node.children.length > 0 && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={(event: DragEndEvent) => {
+            const { active, over } = event;
+            if (!over || active.id === over.id) return;
+            const ids = (node.children || []).map((c) => c.id);
+            const oldIdx = ids.indexOf(Number(active.id));
+            const newIdx = ids.indexOf(Number(over.id));
+            if (oldIdx === -1 || newIdx === -1) return;
+            onReorder(node.id, arrayMove(ids, oldIdx, newIdx));
+          }}
+        >
+          <SortableContext items={(node.children || []).map((c) => c.id)} strategy={verticalListSortingStrategy}>
+            {node.children.map((child) => (
+              <SortableTreeItem
+                key={child.id}
+                node={child}
+                depth={depth + 1}
+                expanded={expanded}
+                selectedId={selectedId}
+                onToggle={onToggle}
+                onSelect={onSelect}
+                onDelete={onDelete}
+                onDetach={onDetach}
+                onAddChild={onAddChild}
+                saving={saving}
+                parentId={node.id}
+                sensors={sensors}
+                onReorder={onReorder}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
+      )}
     </div>
   );
 }
@@ -646,13 +790,14 @@ function TreeItem({
    ================================================================ */
 
 function EntityEditor({
-  node, onUpdate, onUpload, onDeleteAttachment, onAddChild, saving,
+  node, onUpdate, onUpload, onDeleteAttachment, onAddChild, onReorder, saving,
 }: {
   node: TreeNode;
   onUpdate: (id: number, data: Record<string, unknown>, file?: File) => Promise<void>;
   onUpload: (entityId: number, file: File) => Promise<void>;
   onDeleteAttachment: (attId: number) => Promise<void>;
   onAddChild: (parentId: number, childType: string, title: string, extra?: Record<string, unknown>, file?: File) => Promise<void>;
+  onReorder: (parentId: number, orderedChildIds: number[]) => void;
   saving: boolean;
 }) {
   const meta = TYPE_META[node.entity_type] || { icon: '📄', label: node.entity_type, badgeVariant: 'outline' as EntityBadgeVariant };
@@ -661,13 +806,25 @@ function EntityEditor({
   const [body, setBody] = useState(node.body || '');
   const [videoUrl, setVideoUrl] = useState(node.video_url || '');
   const [resourceUrl, setResourceUrl] = useState(node.resource_url || '');
+  const [resourceKind, setResourceKind] = useState('4');
   const [passPct, setPassPct] = useState(String(node.pass_percentage || 50));
   const [file, setFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const attachRef = useRef<HTMLInputElement>(null);
+  const editorSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const [questions, setQuestions] = useState<QuizQuestion[]>(node.questions || []);
   const [isPublished, setIsPublished] = useState(node.status === 2);
+  const [r1, setR1] = useState('10');
+  const [r2, setR2] = useState('8');
+  const [r3, setR3] = useState('5');
+  const [r4, setR4] = useState('2');
+  const [allowDownload, setAllowDownload] = useState(false);
+  const [duration, setDuration] = useState('');
+  const [responsibleId, setResponsibleId] = useState('');
 
   useEffect(() => {
     setTitle(node.title);
@@ -675,9 +832,17 @@ function EntityEditor({
     setBody(node.body || '');
     setVideoUrl(node.video_url || '');
     setResourceUrl(node.resource_url || '');
+    setResourceKind(String((node as any).resource_kind || 4));
     setPassPct(String(node.pass_percentage || 50));
     setQuestions(node.questions || []);
     setIsPublished(node.status === 2);
+    setR1('10');
+    setR2('8');
+    setR3('5');
+    setR4('2');
+    setAllowDownload(Boolean(node.allow_download));
+    setDuration(String(node.duration_seconds ?? ''));
+    setResponsibleId(node.responsible_id != null ? String(node.responsible_id) : '');
     setFile(null);
     if (fileRef.current) fileRef.current.value = '';
   }, [node.id]);
@@ -687,7 +852,13 @@ function EntityEditor({
     const payload: Record<string, unknown> = { title, description, is_published: isPublished };
     if (node.entity_type === 'lesson') payload.body = body;
     if (node.entity_type === 'video') payload.video_url = videoUrl;
-    if (node.entity_type === 'resource') payload.resource_url = resourceUrl;
+    if (node.entity_type === 'resource') {
+      payload.resource_url = resourceUrl;
+      payload.resource_kind = Number(resourceKind);
+    }
+    if (['lesson', 'video', 'resource'].includes(node.entity_type) && responsibleId) {
+      payload.responsible = Number(responsibleId);
+    }
     if (node.entity_type === 'quiz') {
       payload.pass_percentage = Number(passPct);
       payload.questions = questions;
@@ -752,16 +923,43 @@ function EntityEditor({
             <Input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Title" className="w-full font-medium" />
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" rows={2} className="w-full text-sm" />
 
+            {['lesson', 'video', 'resource'].includes(node.entity_type) && (
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Responsible (User ID)</Label>
+                <Input type="number" value={responsibleId} onChange={(e) => setResponsibleId(e.target.value)} placeholder="User ID" className="w-40 text-sm" />
+                {node.responsible_name && !responsibleId && (
+                  <p className="text-xs text-muted-foreground">Current: {node.responsible_name}</p>
+                )}
+              </div>
+            )}
+
             {node.entity_type === 'lesson' && (
               <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Lesson body / content" rows={4} className="w-full text-sm" />
             )}
 
             {node.entity_type === 'video' && (
-              <Input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="Video URL (or upload below)" className="w-full text-sm" />
+              <div className="flex flex-wrap items-end gap-2">
+                <Input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="Video URL (or upload below)" className="min-w-0 flex-1 text-sm" />
+                <Input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="Duration in seconds" className="w-40 text-sm" />
+              </div>
             )}
 
             {node.entity_type === 'resource' && (
-              <Input value={resourceUrl} onChange={(e) => setResourceUrl(e.target.value)} placeholder="Resource URL (or upload below)" className="w-full text-sm" />
+              <div className="flex flex-wrap items-end gap-2">
+                <Input value={resourceUrl} onChange={(e) => setResourceUrl(e.target.value)} placeholder="Resource URL (or upload below)" className="min-w-0 flex-1 text-sm" />
+                <Select value={resourceKind} onValueChange={(v) => setResourceKind(v)}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">PDF</SelectItem>
+                    <SelectItem value="2">Image</SelectItem>
+                    <SelectItem value="3">Worksheet</SelectItem>
+                    <SelectItem value="4">Attachment</SelectItem>
+                    <SelectItem value="5">External Link</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             )}
 
             {(node.entity_type === 'video' || node.entity_type === 'resource' || node.entity_type === 'lesson') && (
@@ -778,6 +976,13 @@ function EntityEditor({
                     {file.name} ({(file.size / 1024).toFixed(1)} KB)
                   </p>
                 )}
+              </div>
+            )}
+
+            {(node.entity_type === 'video' || node.entity_type === 'resource') && (
+              <div className="flex items-center gap-3">
+                <Switch checked={allowDownload} onCheckedChange={setAllowDownload} />
+                <Label className="text-sm">Allow download</Label>
               </div>
             )}
 
@@ -827,6 +1032,27 @@ function EntityEditor({
                   <Button type="button" variant="link" size="xs" className="h-auto p-0 text-primary" onClick={addQuestion}>
                     + Add question
                   </Button>
+                </div>
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-foreground">Rewards (points per attempt)</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">1st attempt</Label>
+                      <Input type="number" value={r1} onChange={(e) => setR1(e.target.value)} className="text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">2nd attempt</Label>
+                      <Input type="number" value={r2} onChange={(e) => setR2(e.target.value)} className="text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">3rd attempt</Label>
+                      <Input type="number" value={r3} onChange={(e) => setR3(e.target.value)} className="text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">4th+ attempt</Label>
+                      <Input type="number" value={r4} onChange={(e) => setR4(e.target.value)} className="text-sm" />
+                    </div>
+                  </div>
                 </div>
               </>
             )}
@@ -894,25 +1120,71 @@ function EntityEditor({
             </h3>
             <QuickAddChild parentId={node.id} allowedTypes={allowedChildren} onAdd={onAddChild} saving={saving} />
             {node.children && node.children.length > 0 && (
-              <ul className="mt-3 divide-y divide-border">
-                {node.children.map((child) => {
-                  const cm = TYPE_META[child.entity_type] || { icon: '📄', label: child.entity_type, badgeVariant: 'outline' as EntityBadgeVariant };
-                  return (
-                    <li key={child.id} className="flex items-center gap-2 py-2">
-                      <span>{cm.icon}</span>
-                      <span className="flex-1 truncate text-sm font-medium text-foreground">{child.title}</span>
-                      <Badge variant={cm.badgeVariant} className="text-[10px] font-semibold uppercase">
-                        {cm.label}
-                      </Badge>
-                    </li>
-                  );
-                })}
-              </ul>
+              <DndContext
+                sensors={editorSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(event: DragEndEvent) => {
+                  const { active, over } = event;
+                  if (!over || active.id === over.id) return;
+                  const ids = (node.children || []).map((c) => c.id);
+                  const oldIdx = ids.indexOf(Number(active.id));
+                  const newIdx = ids.indexOf(Number(over.id));
+                  if (oldIdx === -1 || newIdx === -1) return;
+                  onReorder(node.id, arrayMove(ids, oldIdx, newIdx));
+                }}
+              >
+                <SortableContext items={(node.children || []).map((c) => c.id)} strategy={verticalListSortingStrategy}>
+                  <ul className="mt-3 divide-y divide-border">
+                    {node.children.map((child) => (
+                      <SortableChildItem key={child.id} child={child} />
+                    ))}
+                  </ul>
+                </SortableContext>
+              </DndContext>
             )}
           </CardContent>
         </Card>
       )}
     </div>
+  );
+}
+
+/* ================================================================
+   Sortable Child Item — for the editor's children list
+   ================================================================ */
+
+function SortableChildItem({ child }: { child: TreeNode }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: child.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const cm = TYPE_META[child.entity_type] || { icon: '📄', label: child.entity_type, badgeVariant: 'outline' as EntityBadgeVariant };
+
+  return (
+    <li ref={setNodeRef} style={style} {...attributes} className="flex items-center gap-2 py-2">
+      <span
+        className="cursor-grab touch-none text-muted-foreground/60 hover:text-muted-foreground active:cursor-grabbing"
+        {...listeners}
+      >
+        <GripVertical className="size-3.5" />
+      </span>
+      <span>{cm.icon}</span>
+      <span className="flex-1 truncate text-sm font-medium text-foreground">{child.title}</span>
+      <Badge variant={cm.badgeVariant} className="text-[10px] font-semibold uppercase">
+        {cm.label}
+      </Badge>
+    </li>
   );
 }
 

@@ -1,319 +1,176 @@
 'use client';
 
 import DataTable, { type Column } from '@/components/DataTable';
-import Modal from '@/components/Modal';
-import { useToast } from '@/components/Toast';
 import Pagination from '@/components/Pagination';
 import StatsCard from '@/components/StatsCard';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
 import { useAdminPage } from '@/app/admin/AdminPageContext';
+import { api } from '@/lib/api';
 import { formatRelativeAgo } from '@/lib/admin-format';
-import { fetchPage } from '@/lib/admin-fetch';
-import { api, mediaUrl } from '@/lib/api';
-import { cn } from '@/lib/utils';
-import { BookOpen, FilePen, Filter, Pencil, Timer, Trash2, Users } from 'lucide-react';
-import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Users, UserCheck, Clock, TrendingUp } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
-interface CourseRow extends Record<string, unknown> {
+interface EnrollmentRow extends Record<string, unknown> {
   id: number;
-  title: string;
-  slug?: string;
-  instructor_name?: string;
-  category_name?: string | null;
-  level?: string;
+  learner_name?: string;
+  learner_email?: string;
+  course_title?: string;
   status?: string;
-  lesson_count?: number;
-  duration_minutes?: number | null;
-  created_at?: string;
-}
-
-interface CategoryOption {
-  id: number;
-  name: string;
+  progress_percent?: number;
+  time_spent_seconds?: number;
+  enrolled_at?: string;
+  completed_at?: string;
 }
 
 const PAGE_SIZE = 10;
 
-const LEVEL_FILTER_ANY = '__any__';
-const CATEGORY_NONE = '__none__';
+function formatDuration(seconds?: number) {
+  if (!seconds) return '—';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
 
-export default function AdminCoursesPage() {
+function statusBadge(s?: string) {
+  switch (s) {
+    case 'completed':
+      return <Badge variant="default">Completed</Badge>;
+    case 'in_progress':
+      return <Badge className="bg-blue-500/10 text-blue-700 border-blue-500/20 dark:text-blue-400">In Progress</Badge>;
+    case 'enrolled':
+      return <Badge variant="secondary">Enrolled</Badge>;
+    case 'invited':
+      return <Badge variant="outline">Invited</Badge>;
+    default:
+      return <Badge variant="secondary">{s || 'Unknown'}</Badge>;
+  }
+}
+
+export default function AdminEnrollmentsPage() {
   const { setHeader, search } = useAdminPage();
-  const { toast } = useToast();
   const [page, setPage] = useState(1);
-  const [tab, setTab] = useState<'all' | 'published' | 'draft'>('all');
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [categoryId, setCategoryId] = useState('');
-  const [level, setLevel] = useState('');
   const [loading, setLoading] = useState(true);
-  const [statsLoading, setStatsLoading] = useState(true);
-  const [rows, setRows] = useState<CourseRow[]>([]);
+  const [rows, setRows] = useState<EnrollmentRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [stats, setStats] = useState({
-    total: 0,
-    drafts: 0,
-    instructors: 0,
-    avgDuration: 0,
-  });
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [categories, setCategories] = useState<CategoryOption[]>([]);
-  const [categoriesLoading, setCategoriesLoading] = useState(false);
-  const [courseTitle, setCourseTitle] = useState('');
-  const [courseShortDescription, setCourseShortDescription] = useState('');
-  const [courseCategoryId, setCourseCategoryId] = useState('');
-  const [courseLevel, setCourseLevel] = useState('beginner');
-  const [deleteConfirm, setDeleteConfirm] = useState<CourseRow | null>(null);
-
-  const statusParam = useMemo(() => {
-    if (tab === 'published') return 'published';
-    if (tab === 'draft') return 'draft';
-    return undefined;
-  }, [tab]);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [stats, setStats] = useState({ total: 0, completed: 0, inProgress: 0, avgProgress: 0 });
 
   useEffect(() => {
     setHeader({
-      title: 'Course Catalog',
-      subtitle: 'Browse and manage all courses on the platform.',
-      searchPlaceholder: 'Search courses by title…',
-      primaryActionLabel: '+ New Course',
-      onPrimaryAction: () => setModalOpen(true),
+      title: 'Enrollments',
+      subtitle: 'Track learner enrollments and progress across all courses.',
+      searchPlaceholder: 'Search by learner or course…',
     });
   }, [setHeader]);
-
-  const loadCategories = useCallback(async () => {
-    setCategoriesLoading(true);
-    try {
-      const { data } = await api.get<CategoryOption[]>('/api/categories/');
-      setCategories(Array.isArray(data) ? data : []);
-    } catch {
-      toast('Failed to load categories', 'error');
-      setCategories([]);
-    } finally {
-      setCategoriesLoading(false);
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    if (!modalOpen) return;
-    loadCategories();
-  }, [modalOpen, loadCategories]);
-
-  const loadStats = useCallback(async () => {
-    setStatsLoading(true);
-    try {
-      const [all, drafts, listData] = await Promise.all([
-        fetchPage<CourseRow>('/api/admin/courses/', { page: 1, search }),
-        fetchPage<CourseRow>('/api/admin/courses/', { page: 1, status: 'draft', search }),
-        fetchAllCoursesForStats(search),
-      ]);
-      setStats({
-        total: all.count,
-        drafts: drafts.count,
-        instructors: listData.uniqueInstructors,
-        avgDuration: listData.avgDuration,
-      });
-    } finally {
-      setStatsLoading(false);
-    }
-  }, [search]);
 
   const loadTable = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get<{ count: number; results: CourseRow[] }>(
-        '/api/admin/courses/',
-        {
-          params: {
-            page,
-            search,
-            status: statusParam,
-            category: categoryId || undefined,
-            level: level || undefined,
-          },
-        }
+      const { data } = await api.get<{ count: number; results: EnrollmentRow[] }>(
+        '/api/admin/enrollments/',
+        { params: { page, search: search || undefined } }
       );
-      setRows(data.results);
-      setTotal(data.count);
+      setRows(data.results ?? []);
+      setTotal(data.count ?? 0);
+    } catch {
+      setRows([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusParam, categoryId, level]);
+  }, [page, search]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [tab, search, categoryId, level]);
-
-  useEffect(() => {
-    loadStats();
-  }, [loadStats]);
-
-  useEffect(() => {
-    loadTable();
-  }, [loadTable]);
-
-  function resetCreateForm() {
-    setCourseTitle('');
-    setCourseShortDescription('');
-    setCourseCategoryId('');
-    setCourseLevel('beginner');
-  }
-
-  async function handleCreateCourse(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const t = courseTitle.trim();
-    if (!t) {
-      toast('Title is required', 'error');
-      return;
-    }
-    setSaving(true);
+  const loadStats = useCallback(async () => {
+    setStatsLoading(true);
     try {
-      await api.post('/api/courses/', {
-        title: t,
-        short_description: courseShortDescription.trim() || undefined,
-        category: courseCategoryId ? Number(courseCategoryId) : null,
-        level: courseLevel,
+      const { data } = await api.get<{ count: number; results: EnrollmentRow[] }>(
+        '/api/admin/enrollments/',
+        { params: { page: 1, page_size: 100 } }
+      );
+      const all = data.results ?? [];
+      const completed = all.filter((r) => r.status === 'completed').length;
+      const inProgress = all.filter((r) => r.status === 'in_progress').length;
+      const totalProg = all.reduce((s, r) => s + (r.progress_percent ?? 0), 0);
+      setStats({
+        total: data.count ?? 0,
+        completed,
+        inProgress,
+        avgProgress: all.length ? Math.round(totalProg / all.length) : 0,
       });
-      toast('Course created!', 'success');
-      setModalOpen(false);
-      resetCreateForm();
-      loadStats();
-      loadTable();
     } catch {
-      toast('Failed to create course', 'error');
+      setStats({ total: 0, completed: 0, inProgress: 0, avgProgress: 0 });
     } finally {
-      setSaving(false);
+      setStatsLoading(false);
     }
-  }
+  }, []);
 
-  async function handleDeleteCourse(row: CourseRow) {
-    try {
-      await api.delete(`/api/courses/${row.id}/`);
-      toast('Course deleted!', 'success');
-      setDeleteConfirm(null);
-      loadStats();
-      loadTable();
-    } catch {
-      toast('Failed to delete course', 'error');
-    }
-  }
+  useEffect(() => { setPage(1); }, [search]);
+  useEffect(() => { loadTable(); }, [loadTable]);
+  useEffect(() => { loadStats(); }, [loadStats]);
 
-  const columns: Column<CourseRow>[] = [
+  const columns: Column<EnrollmentRow>[] = [
     {
       key: 'id',
-      header: 'ID',
-      render: (r) => <span className="font-mono text-muted-foreground">#CR-{r.id}</span>,
+      header: '#',
+      render: (r) => <span className="font-mono text-muted-foreground">{r.id}</span>,
     },
     {
-      key: 'title',
-      header: 'Title & Thumbnail',
-      render: (r) => {
-        const thumb = mediaUrl((r as { thumbnail?: string | null }).thumbnail);
-        return (
-          <div className="flex max-w-xs items-start gap-3">
-            <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
-              {thumb ? (
-                <img src={thumb} alt="" className="h-12 w-16 object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
-                  No img
-                </div>
-              )}
-            </div>
-            <div>
-              <p className="font-medium text-foreground">{r.title}</p>
-              <p className="text-xs text-muted-foreground">Updated {formatRelativeAgo(r.created_at)}</p>
-            </div>
-          </div>
-        );
-      },
-    },
-    {
-      key: 'instructor',
-      header: 'Instructor',
+      key: 'learner',
+      header: 'Learner',
       render: (r) => (
         <div className="flex items-center gap-2">
           <Avatar className="h-8 w-8">
             <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
-              {(r.instructor_name || '?').slice(0, 2).toUpperCase()}
+              {(r.learner_name || r.learner_email || '?').slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <span className="text-foreground">{r.instructor_name || '—'}</span>
+          <div className="min-w-0">
+            <p className="truncate font-medium text-foreground">{r.learner_name || '—'}</p>
+            <p className="truncate text-xs text-muted-foreground">{r.learner_email || ''}</p>
+          </div>
         </div>
       ),
     },
     {
-      key: 'category',
-      header: 'Category',
-      render: (r) =>
-        r.category_name ? (
-          <Badge variant="secondary">{r.category_name}</Badge>
-        ) : (
-          '—'
-        ),
-    },
-    {
-      key: 'level',
-      header: 'Level',
-      render: (r) => <span className="capitalize text-foreground">{r.level || '—'}</span>,
-    },
-    {
-      key: 'duration',
-      header: 'Duration',
-      render: (r) => (
-        <span className="text-foreground">
-          {r.duration_minutes != null ? `${r.duration_minutes} min` : '—'}
-        </span>
-      ),
+      key: 'course_title',
+      header: 'Course',
+      render: (r) => <span className="font-medium text-foreground">{r.course_title || '—'}</span>,
     },
     {
       key: 'status',
       header: 'Status',
-      render: (r) =>
-        r.status === 'published' ? (
-          <Badge variant="default">Published</Badge>
-        ) : (
-          <Badge variant="secondary">Draft</Badge>
-        ),
+      render: (r) => statusBadge(r.status),
     },
     {
-      key: 'actions',
-      header: 'Actions',
-      className: 'w-28',
+      key: 'progress',
+      header: 'Progress',
       render: (r) => (
-        <div className="flex items-center gap-1">
-          <Link
-            href={`/dashboard/instructor/courses/${r.id}/edit`}
-            className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }))}
-            aria-label="Edit course"
-          >
-            <Pencil className="h-4 w-4" />
-          </Link>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setDeleteConfirm(r)}
-            aria-label="Delete course"
-            className="text-destructive hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+        <div className="flex items-center gap-2">
+          <Progress value={r.progress_percent ?? 0} className="h-2 w-20" />
+          <span className="text-xs text-muted-foreground">{r.progress_percent ?? 0}%</span>
         </div>
+      ),
+    },
+    {
+      key: 'time_spent',
+      header: 'Time Spent',
+      render: (r) => <span className="text-muted-foreground">{formatDuration(r.time_spent_seconds)}</span>,
+    },
+    {
+      key: 'enrolled_at',
+      header: 'Enrolled',
+      render: (r) => (
+        <span className="text-muted-foreground">{r.enrolled_at ? formatRelativeAgo(r.enrolled_at) : '—'}</span>
+      ),
+    },
+    {
+      key: 'completed_at',
+      header: 'Completed',
+      render: (r) => (
+        <span className="text-muted-foreground">{r.completed_at ? formatRelativeAgo(r.completed_at) : '—'}</span>
       ),
     },
   ];
@@ -323,215 +180,20 @@ export default function AdminCoursesPage() {
   return (
     <div className="space-y-8">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatsCard label="Total Courses" value={statsLoading ? '—' : stats.total} icon={<BookOpen className="h-5 w-5" />} />
-        <StatsCard label="Active Drafts" value={statsLoading ? '—' : stats.drafts} icon={<FilePen className="h-5 w-5" />} />
-        <StatsCard label="Instructors" value={statsLoading ? '—' : stats.instructors} icon={<Users className="h-5 w-5" />} />
-        <StatsCard
-          label="Avg. Duration"
-          value={statsLoading ? '—' : `${Math.round(stats.avgDuration)} min`}
-          icon={<Timer className="h-5 w-5" />}
-        />
+        <StatsCard label="Total Enrollments" value={statsLoading ? '—' : stats.total} icon={<Users className="h-5 w-5" />} />
+        <StatsCard label="Completed" value={statsLoading ? '—' : stats.completed} icon={<UserCheck className="h-5 w-5" />} />
+        <StatsCard label="In Progress" value={statsLoading ? '—' : stats.inProgress} icon={<Clock className="h-5 w-5" />} />
+        <StatsCard label="Avg. Progress" value={statsLoading ? '—' : `${stats.avgProgress}%`} icon={<TrendingUp className="h-5 w-5" />} />
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="inline-flex flex-wrap gap-1 rounded-lg border border-border bg-muted/50 p-1">
-          {(['all', 'published', 'draft'] as const).map((t) => (
-            <Button
-              key={t}
-              type="button"
-              variant={tab === t ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setTab(t)}
-              className="capitalize"
-            >
-              {t === 'all' ? 'All Courses' : t === 'published' ? 'Published' : 'Drafts'}
-            </Button>
-          ))}
-        </div>
-        <Button type="button" variant="outline" size="sm" onClick={() => setFilterOpen((v) => !v)} className="gap-2">
-          <Filter className="h-4 w-4" />
-          Filter
-        </Button>
-      </div>
-      {filterOpen ? (
-        <Card className="flex flex-wrap gap-4 border-dashed p-4">
-          <div className="space-y-2">
-            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Category ID</Label>
-            <Input
-              className="mt-1 max-w-[12rem] text-sm"
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              placeholder="e.g. 1"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Level</Label>
-            <Select
-              value={level === '' ? LEVEL_FILTER_ANY : level}
-              onValueChange={(v) => {
-                if (v == null || v === LEVEL_FILTER_ANY) setLevel('');
-                else setLevel(v);
-              }}
-            >
-              <SelectTrigger className="mt-1 w-[12rem]">
-                <SelectValue placeholder="Any" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={LEVEL_FILTER_ANY}>Any</SelectItem>
-                <SelectItem value="beginner">Beginner</SelectItem>
-                <SelectItem value="intermediate">Intermediate</SelectItem>
-                <SelectItem value="advanced">Advanced</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </Card>
-      ) : null}
-      <DataTable columns={columns} data={rows} loading={loading} emptyMessage="No courses found." />
+      <DataTable columns={columns} data={rows} loading={loading} emptyMessage="No enrollments found." />
       <Pagination
         currentPage={page}
         totalPages={totalPages}
         totalItems={total}
         pageSize={PAGE_SIZE}
         onPageChange={setPage}
-        itemName="courses"
+        itemName="enrollments"
       />
-
-      <Modal
-        open={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          resetCreateForm();
-        }}
-        title="New Course"
-        subtitle="Create a course draft. You can add modules and lessons from the instructor editor."
-        size="lg"
-      >
-        <form onSubmit={handleCreateCourse} className="space-y-4">
-          <div className="space-y-2">
-            <Label>
-              Title <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              required
-              value={courseTitle}
-              onChange={(e) => setCourseTitle(e.target.value)}
-              placeholder="Course title"
-              autoFocus
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Short description</Label>
-            <Textarea
-              value={courseShortDescription}
-              onChange={(e) => setCourseShortDescription(e.target.value)}
-              placeholder="Brief summary for listings"
-              rows={3}
-              className="min-h-[88px] resize-y"
-            />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <Select
-                value={courseCategoryId === '' ? CATEGORY_NONE : String(courseCategoryId)}
-                onValueChange={(v) => {
-                  if (v == null || v === CATEGORY_NONE) setCourseCategoryId('');
-                  else setCourseCategoryId(v);
-                }}
-                disabled={categoriesLoading}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="— None —" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={CATEGORY_NONE}>— None —</SelectItem>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Level</Label>
-              <Select
-                value={courseLevel}
-                onValueChange={(v) => {
-                  if (v) setCourseLevel(v);
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="beginner">Beginner</SelectItem>
-                  <SelectItem value="intermediate">Intermediate</SelectItem>
-                  <SelectItem value="advanced">Advanced</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="flex justify-end gap-3 border-t pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setModalOpen(false);
-                resetCreateForm();
-              }}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Creating…' : 'Create course'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal
-        open={!!deleteConfirm}
-        onClose={() => setDeleteConfirm(null)}
-        title="Delete course"
-        subtitle="This action cannot be undone."
-        size="sm"
-      >
-        <p className="text-sm text-muted-foreground">
-          Are you sure you want to delete <strong className="text-foreground">{deleteConfirm?.title}</strong>?
-        </p>
-        <div className="mt-6 flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => setDeleteConfirm(null)}>
-            Cancel
-          </Button>
-          <Button type="button" variant="destructive" onClick={() => deleteConfirm && handleDeleteCourse(deleteConfirm)}>
-            Delete
-          </Button>
-        </div>
-      </Modal>
     </div>
   );
-}
-
-async function fetchAllCoursesForStats(search?: string) {
-  let page = 1;
-  const instructorNames = new Set<string>();
-  let durationSum = 0;
-  let durationCount = 0;
-  while (true) {
-    const data = await fetchPage<CourseRow>('/api/admin/courses/', { page, search });
-    for (const c of data.results) {
-      if (c.instructor_name) instructorNames.add(c.instructor_name);
-      if (c.duration_minutes != null) {
-        durationSum += c.duration_minutes;
-        durationCount += 1;
-      }
-    }
-    if (!data.next) break;
-    page += 1;
-    if (page > 200) break;
-  }
-  return {
-    uniqueInstructors: instructorNames.size,
-    avgDuration: durationCount ? durationSum / durationCount : 0,
-  };
 }

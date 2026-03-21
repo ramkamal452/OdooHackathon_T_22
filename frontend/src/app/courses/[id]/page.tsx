@@ -7,6 +7,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import {
   CourseDetail,
   CourseReview,
@@ -20,13 +32,16 @@ import { useAuth } from '@/lib/auth';
 import {
   ArrowLeft,
   BookOpen,
+  CheckCircle2,
+  CreditCard,
   Edit,
   Play,
+  Search,
   Star,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 
 interface EnrollmentRow {
   id: number;
@@ -59,6 +74,15 @@ export default function CourseDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [thumbError, setThumbError] = useState(false);
+  const [lessonSearch, setLessonSearch] = useState('');
+
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewSuccess, setReviewSuccess] = useState(false);
+
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -114,12 +138,58 @@ export default function CourseDetailPage() {
     return 'Instructor';
   }, [course]);
 
+  const reviews = useMemo(() => (course?.reviews ?? []) as CourseReview[], [course]);
+  const avgRating = useMemo(() => {
+    if (reviews.length === 0) return 0;
+    return reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+  }, [reviews]);
+
+  const tags = useMemo(() => {
+    const t = (course as unknown as { tags?: string })?.tags;
+    if (!t) return [];
+    return t.split(',').map((s: string) => s.trim()).filter(Boolean);
+  }, [course]);
+
   async function enroll() {
     if (!user) { router.push('/login'); return; }
     setActionLoading(true);
     try { await api.post(`/api/courses/${id}/enroll/`); await load(); }
     catch { setError('Could not enroll. Try again.'); }
     finally { setActionLoading(false); }
+  }
+
+  async function handleBuyCourse() {
+    setPaymentOpen(false);
+    await enroll();
+  }
+
+  async function handleCompleteCourse() {
+    setCompleteOpen(false);
+    setActionLoading(true);
+    try {
+      await api.post(`/api/courses/${id}/enroll/`);
+      await load();
+    } catch { /* already enrolled, just refresh */ await load(); }
+    finally { setActionLoading(false); }
+  }
+
+  async function submitReview(e: FormEvent) {
+    e.preventDefault();
+    setReviewSubmitting(true);
+    try {
+      await api.post(`/api/courses/${id}/reviews/`, {
+        rating: reviewRating,
+        review_text: reviewText,
+      });
+      setReviewSuccess(true);
+      setReviewText('');
+      setReviewRating(5);
+      await load();
+    } catch {
+      setError('Could not submit review.');
+    } finally {
+      setReviewSubmitting(false);
+    }
   }
 
   if (loading) {
@@ -130,22 +200,33 @@ export default function CourseDetailPage() {
     );
   }
 
-  if (error || !course) {
+  if (error && !course) {
     return (
-      <div className="px-4 py-16 text-center">
-        <p className="text-destructive">{error || 'Not found'}</p>
-        <Button variant="link" asChild className="mt-4">
-          <Link href="/courses"><ArrowLeft className="mr-2 h-4 w-4" />Back to courses</Link>
-        </Button>
+      <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 py-16 text-center">
+        <div className="rounded-lg border bg-card p-8 shadow-sm max-w-md">
+          <h2 className="text-lg font-semibold text-foreground mb-2">Course Unavailable</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            This course may have been removed, or you may not have permission to view it.
+          </p>
+          <Button asChild>
+            <Link href="/courses"><ArrowLeft className="mr-2 h-4 w-4" />Browse Courses</Link>
+          </Button>
+        </div>
       </div>
     );
   }
+
+  if (!course) return null;
 
   const thumb = mediaUrl(course.thumbnail);
   const enrollmentStatus = course.enrollment_status;
   const enrolled = !!enrollment || (!!enrollmentStatus && enrollmentStatus !== 'not_enrolled' && enrollmentStatus !== 'owner');
   const isOwner = enrollmentStatus === 'owner';
   const progressPct = enrollment?.progress_percent ?? (stats.total ? Math.round((stats.done / stats.total) * 100) : 0);
+  const allDone = stats.total > 0 && stats.done === stats.total;
+  const accessRule = (course as unknown as { access_rule?: string }).access_rule;
+  const price = (course as unknown as { price?: number | string }).price;
+  const isPaid = accessRule === 'payment' && !enrolled && !isOwner;
   const onSelectLesson = (lesson: LessonItem) => { router.push(`/courses/${id}/learn?lesson=${lesson.id}`); };
   const modules = course.modules || [];
 
@@ -158,6 +239,10 @@ export default function CourseDetailPage() {
           <div className="flex items-center gap-2">
             {isOwner ? (
               <Button size="sm" asChild><Link href={`/dashboard/instructor/courses/${id}/edit`}><Edit className="mr-1.5 h-4 w-4" />Edit</Link></Button>
+            ) : isPaid ? (
+              <Button size="sm" onClick={() => setPaymentOpen(true)} disabled={actionLoading}>
+                <CreditCard className="mr-1.5 h-4 w-4" />Buy Course {price ? `— $${price}` : ''}
+              </Button>
             ) : !enrolled ? (
               <Button size="sm" onClick={enroll} disabled={actionLoading}>
                 {actionLoading ? 'Enrolling…' : 'Enroll Now'}
@@ -170,6 +255,8 @@ export default function CourseDetailPage() {
       />
 
       <div className="flex-1 overflow-auto px-4 py-8 lg:px-8">
+        {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
+
         <div className="grid gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -177,6 +264,9 @@ export default function CourseDetailPage() {
                 <Badge variant="outline">{course.category?.name || course.category_name}</Badge>
               )}
               {course.level && <Badge variant="outline" className="capitalize">{course.level}</Badge>}
+              {tags.map((tag) => (
+                <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+              ))}
             </div>
             <p className="max-w-2xl text-muted-foreground leading-relaxed">
               {course.description || course.short_description}
@@ -208,6 +298,12 @@ export default function CourseDetailPage() {
                     <p className="text-xs text-muted-foreground">Left</p>
                   </div>
                 </div>
+                {enrolled && allDone && (
+                  <Button className="mt-4 w-full" onClick={() => setCompleteOpen(true)}>
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Complete this course
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -216,43 +312,99 @@ export default function CourseDetailPage() {
         <div className="mt-10 grid gap-10 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-8">
             <div>
-              <h2 className="text-xl font-semibold">Curriculum</h2>
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-xl font-semibold">Curriculum</h2>
+                <div className="relative w-56">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder="Search lessons…"
+                    value={lessonSearch}
+                    onChange={(e) => setLessonSearch(e.target.value)}
+                    className="pl-9 text-sm"
+                  />
+                </div>
+              </div>
               <div className="mt-4">
                 {modules.length > 0 ? (
-                  <LessonList modules={modules} onSelect={onSelectLesson} completedMap={completedMap} />
+                  <LessonList modules={modules} onSelect={onSelectLesson} completedMap={completedMap} searchQuery={lessonSearch} />
                 ) : (
                   <Card className="p-8 text-center"><p className="text-muted-foreground">No modules yet.</p></Card>
                 )}
               </div>
             </div>
 
-            {(course.reviews ?? []).length > 0 && (
-              <div>
+            <div>
+              <div className="flex items-center gap-4">
                 <h2 className="text-xl font-semibold">Reviews</h2>
-                <div className="mt-4 space-y-4">
-                  {(course.reviews as CourseReview[]).map((r) => (
-                    <Card key={r.id} className="p-5">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
-                          <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
-                            {r.user_name?.charAt(0)?.toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-sm font-semibold">{r.user_name}</p>
-                          <div className="flex gap-0.5">
-                            {Array.from({ length: 5 }, (_, i) => (
-                              <Star key={i} className={`h-3.5 w-3.5 ${i < r.rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/30'}`} />
-                            ))}
-                          </div>
+                {reviews.length > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                    <span className="font-semibold">{avgRating.toFixed(1)}</span>
+                    <span className="text-sm text-muted-foreground">({reviews.length})</span>
+                  </div>
+                )}
+              </div>
+
+              {user && enrolled && (
+                <Card className="mt-4 p-5">
+                  <form onSubmit={submitReview} className="space-y-3">
+                    <Label className="text-sm font-medium">Write a review</Label>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: 5 }, (_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setReviewRating(i + 1)}
+                          className="p-0.5"
+                        >
+                          <Star className={`h-5 w-5 transition-colors ${i < reviewRating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/30 hover:text-yellow-300'}`} />
+                        </button>
+                      ))}
+                    </div>
+                    <Textarea
+                      value={reviewText}
+                      onChange={(e) => setReviewText(e.target.value)}
+                      placeholder="Share your experience…"
+                      rows={3}
+                      className="text-sm"
+                    />
+                    <div className="flex items-center gap-3">
+                      <Button type="submit" size="sm" disabled={reviewSubmitting}>
+                        {reviewSubmitting ? 'Submitting…' : 'Submit Review'}
+                      </Button>
+                      {reviewSuccess && <span className="text-xs text-emerald-600 dark:text-emerald-400">Review saved!</span>}
+                    </div>
+                  </form>
+                </Card>
+              )}
+
+              <div className="mt-4 space-y-4">
+                {reviews.map((r) => (
+                  <Card key={r.id} className="p-5">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9">
+                        <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
+                          {r.user_name?.charAt(0)?.toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-semibold">{r.user_name}</p>
+                        <div className="flex gap-0.5">
+                          {Array.from({ length: 5 }, (_, i) => (
+                            <Star key={i} className={`h-3.5 w-3.5 ${i < r.rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/30'}`} />
+                          ))}
                         </div>
                       </div>
-                      <p className="mt-3 text-sm text-muted-foreground">{r.review_text}</p>
-                    </Card>
-                  ))}
-                </div>
+                    </div>
+                    <p className="mt-3 text-sm text-muted-foreground">{r.review_text}</p>
+                  </Card>
+                ))}
+                {reviews.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No reviews yet. Be the first to share your experience!</p>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
           <div>
@@ -278,6 +430,60 @@ export default function CourseDetailPage() {
           </div>
         </div>
       </div>
+
+      <AlertDialog open={paymentOpen} onOpenChange={setPaymentOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Purchase Course</AlertDialogTitle>
+            <AlertDialogDescription>
+              This course requires payment. Complete the purchase to start learning.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="rounded-lg border bg-muted/50 p-4 text-center">
+              <p className="text-3xl font-bold">{price ? `$${price}` : 'Paid'}</p>
+              <p className="text-sm text-muted-foreground">{course.title}</p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Card Number</Label>
+              <Input placeholder="4242 4242 4242 4242" className="font-mono" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Expiry</Label>
+                <Input placeholder="MM/YY" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">CVC</Label>
+                <Input placeholder="123" />
+              </div>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setPaymentOpen(false)}>Cancel</Button>
+            <AlertDialogAction onClick={handleBuyCourse}>
+              Pay {price ? `$${price}` : ''} & Enroll
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={completeOpen} onOpenChange={setCompleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Complete Course</AlertDialogTitle>
+            <AlertDialogDescription>
+              Congratulations! You&apos;ve finished all lessons. Mark this course as completed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setCompleteOpen(false)}>Not yet</Button>
+            <AlertDialogAction onClick={handleCompleteCourse}>
+              <CheckCircle2 className="mr-2 h-4 w-4" />Complete Course
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
