@@ -115,6 +115,11 @@ export default function LearnPage() {
     course?.modules?.forEach((mod) => {
       mod.lessons?.forEach((l) => {
         if (l.is_completed !== undefined) m.set(l.id, l.is_completed);
+        if (l.children) {
+          l.children.forEach((c) => {
+            if (c.is_completed !== undefined) m.set(c.id, c.is_completed);
+          });
+        }
       });
     });
     return m;

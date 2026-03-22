@@ -39,12 +39,13 @@ docker compose up -d
 
 | Variable             | Default              |
 |----------------------|----------------------|
-| `MYSQL_ROOT_PASSWORD`| `learnova_root_pass` |
-| `MYSQL_DATABASE`     | `learnova`           |
-| `MYSQL_USER`         | `learnova_user`      |
-| `MYSQL_PASSWORD`     | `learnova_pass`      |
-| `MYSQL_PORT`         | `3306`               |
+| `MYSQL_ROOT_PASSWORD`|                      |
+| `MYSQL_DATABASE`     |                      |
+| `MYSQL_USER`         |                      |
+| `MYSQL_PASSWORD`     |                      |
+| `MYSQL_PORT`         |                      |
 
 ## Team
 
 Team 22 — Odoo Hackathon
+qq

@@ -378,8 +378,6 @@ class CourseDetailSerializer(serializers.Serializer):
             for p in prog_qs:
                 progress_map[p.entity_id] = (p.progress_status == ProgressStatus.COMPLETED)
 
-        from .models import UnlockRuleCode
-
         module_entities = []
         direct_lessons = []
         for link in child_links:
@@ -396,42 +394,65 @@ class CourseDetailSerializer(serializers.Serializer):
             if role == 'admin' or (role == 'instructor' and entity.owner_id == user.id):
                 is_owner = True
 
-        last_completed = True  # Start with unlocked
+        def _process_item_with_children(child_entity, structure_link, mod_id, progress_map, dfs_ready, is_owner, request):
+            """Process a single item and its children with DFS sequential locking.
+            Returns (lesson_data, new_dfs_ready)."""
+            is_done = progress_map.get(child_entity.id, False)
+            is_locked = False if is_owner else (not dfs_ready)
+
+            lesson_data = LessonSerializer.from_entity(
+                child_entity, structure_link, request,
+                is_completed=is_done,
+                is_locked=is_locked,
+            )
+            lesson_data['module'] = mod_id
+
+            sub_links = list(
+                ContentStructure.objects.filter(parent_entity=child_entity)
+                .select_related('child_entity')
+                .order_by('sort_order')
+            )
+            lesson_children = []
+            child_dfs_ready = not is_locked and is_done
+            for cl in sub_links:
+                cl_child = cl.child_entity
+                cl_done = progress_map.get(cl_child.id, False)
+                cl_locked = False if is_owner else (not child_dfs_ready)
+
+                cl_data = LessonSerializer.from_entity(
+                    cl_child, cl, request,
+                    is_completed=cl_done,
+                    is_locked=cl_locked,
+                )
+                lesson_children.append(cl_data)
+                if not cl_locked:
+                    child_dfs_ready = cl_done
+                else:
+                    child_dfs_ready = False
+
+            lesson_data['children'] = lesson_children
+
+            if is_locked:
+                new_dfs_ready = False
+            elif sub_links:
+                all_subs_done = all(
+                    progress_map.get(cl.child_entity_id, False) for cl in sub_links
+                )
+                new_dfs_ready = is_done and all_subs_done
+            else:
+                new_dfs_ready = is_done
+
+            return lesson_data, new_dfs_ready
+
+        dfs_ready = True
 
         if direct_lessons:
             dl_items = []
             for child, link in direct_lessons:
-                is_done = progress_map.get(child.id, False)
-                is_locked = False
-                if not is_owner:
-                    if link.unlock_rule_code in (UnlockRuleCode.IMMEDIATE, UnlockRuleCode.AFTER_PREVIOUS):
-                        is_locked = not last_completed
-
-                lesson_data = LessonSerializer.from_entity(
-                    child, link, request,
-                    is_completed=is_done,
-                    is_locked=is_locked
+                lesson_data, dfs_ready = _process_item_with_children(
+                    child, link, None, progress_map, dfs_ready, is_owner, request,
                 )
-                lesson_data['module'] = None
-                # Fetch children of this lesson (e.g. a quiz nested inside a lesson)
-                child_of_lesson_links = list(
-                    ContentStructure.objects.filter(parent_entity=child)
-                    .select_related('child_entity')
-                    .order_by('sort_order')
-                )
-                lesson_children = []
-                for cl in child_of_lesson_links:
-                    cl_child = cl.child_entity
-                    cl_done = progress_map.get(cl_child.id, False)
-                    cl_data = LessonSerializer.from_entity(
-                        cl_child, cl, request,
-                        is_completed=cl_done,
-                        is_locked=is_locked,
-                    )
-                    lesson_children.append(cl_data)
-                lesson_data['children'] = lesson_children
                 dl_items.append(lesson_data)
-                last_completed = is_done if not is_locked else False
 
             if dl_items:
                 modules_data.append({
@@ -453,37 +474,10 @@ class CourseDetailSerializer(serializers.Serializer):
             lessons = []
             for clink in mod_child_links:
                 child = clink.child_entity
-                is_done = progress_map.get(child.id, False)
-                is_locked = False
-                if not is_owner:
-                    if clink.unlock_rule_code in (UnlockRuleCode.IMMEDIATE, UnlockRuleCode.AFTER_PREVIOUS):
-                        is_locked = not last_completed
-
-                lesson_data = LessonSerializer.from_entity(
-                    child, clink, request,
-                    is_completed=is_done,
-                    is_locked=is_locked
+                lesson_data, dfs_ready = _process_item_with_children(
+                    child, clink, mod_entity.id, progress_map, dfs_ready, is_owner, request,
                 )
-                lesson_data['module'] = mod_entity.id
-                # Fetch children of this lesson (e.g. a quiz nested inside a lesson)
-                child_of_lesson_links = list(
-                    ContentStructure.objects.filter(parent_entity=child)
-                    .select_related('child_entity')
-                    .order_by('sort_order')
-                )
-                lesson_children = []
-                for cl in child_of_lesson_links:
-                    cl_child = cl.child_entity
-                    cl_done = progress_map.get(cl_child.id, False)
-                    cl_data = LessonSerializer.from_entity(
-                        cl_child, cl, request,
-                        is_completed=cl_done,
-                        is_locked=is_locked,
-                    )
-                    lesson_children.append(cl_data)
-                lesson_data['children'] = lesson_children
                 lessons.append(lesson_data)
-                last_completed = is_done if not is_locked else False
 
             modules_data.append({
                 'id': mod_entity.id,
