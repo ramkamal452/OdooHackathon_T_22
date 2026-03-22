@@ -175,7 +175,7 @@ class LearnerDashboardView(APIView):
         completed = mems.filter(membership_status=MembershipStatus.COMPLETED).count()
         total_points = request.user.points
 
-        from content.models import EntityTag
+        from taxonomy.models import EntityTag
         course_ids = [m.course_entity_id for m in mems]
         tags_map: dict[int, str] = {}
         for et in EntityTag.objects.filter(entity_id__in=course_ids).select_related('tag'):

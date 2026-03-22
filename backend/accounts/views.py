@@ -14,6 +14,7 @@ from .serializers import (
     CustomTokenObtainPairSerializer,
     RegisterSerializer,
     UserSerializer,
+    ChangePasswordSerializer,
 )
 
 User = get_user_model()
@@ -79,3 +80,15 @@ class UserListView(generics.ListAPIView):
         if role:
             qs = qs.filter(role=role)
         return qs
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            request.user.set_password(serializer.validated_data['new_password'])
+            request.user.save()
+            return Response({"detail": "Password updated successfully."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

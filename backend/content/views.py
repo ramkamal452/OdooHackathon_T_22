@@ -675,7 +675,9 @@ class AdminCourseListView(APIView):
             if code:
                 qs = qs.filter(status_code=code)
         if category:
-            qs = qs.filter(entity_categories__category_id=category)
+            cat_ids = [c.strip() for c in category.split(',') if c.strip().isdigit()]
+            if cat_ids:
+                qs = qs.filter(entity_categories__category_id__in=cat_ids)
         if level:
             code = LEVEL_REVERSE.get(level)
             if code:

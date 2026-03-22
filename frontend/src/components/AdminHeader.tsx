@@ -3,8 +3,8 @@
 import { useTheme } from '@/components/ThemeProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuth } from '@/lib/auth';
+import { UserProfileDropdown } from '@/components/UserProfileDropdown';
 import { Moon, Search, Sun } from 'lucide-react';
 
 interface AdminHeaderProps {
@@ -64,13 +64,7 @@ export default function AdminHeader({
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
 
-          {user && (
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-                {(user.first_name?.[0] ?? user.email[0]).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-          )}
+          <UserProfileDropdown />
         </div>
       </div>
     </header>

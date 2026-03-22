@@ -18,12 +18,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Textarea } from '@/components/ui/textarea';
 import { useAdminPage } from '@/app/admin/AdminPageContext';
 import { formatRelativeAgo } from '@/lib/admin-format';
 import { fetchPage } from '@/lib/admin-fetch';
 import { api, mediaUrl } from '@/lib/api';
-import { BookOpen, Clock, Copy, Edit, FileEdit, Filter, GraduationCap, LayoutGrid, List, Trash2 } from 'lucide-react';
+import { BookOpen, Check, ChevronsUpDown, Clock, Copy, Edit, FileEdit, Filter, GraduationCap, LayoutGrid, List, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
@@ -60,7 +62,7 @@ export default function AdminCoursesPage() {
   const [tab, setTab] = useState<'all' | 'published' | 'draft'>('all');
   const [filterOpen, setFilterOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
-  const [categoryId, setCategoryId] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [level, setLevel] = useState('');
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -113,9 +115,11 @@ export default function AdminCoursesPage() {
   }, [toast]);
 
   useEffect(() => {
-    if (!modalOpen) return;
-    loadCategories();
-  }, [modalOpen, loadCategories]);
+    if (!modalOpen && !filterOpen) return;
+    if (categories.length === 0 && !categoriesLoading) {
+      loadCategories();
+    }
+  }, [modalOpen, filterOpen, loadCategories, categories.length, categoriesLoading]);
 
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
@@ -146,7 +150,7 @@ export default function AdminCoursesPage() {
             page,
             search,
             status: statusParam,
-            category: categoryId || undefined,
+            category: selectedCategories.length > 0 ? selectedCategories.join(',') : undefined,
             level: level || undefined,
           },
         }
@@ -156,11 +160,11 @@ export default function AdminCoursesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusParam, categoryId, level]);
+  }, [page, search, statusParam, selectedCategories, level]);
 
   useEffect(() => {
     setPage(1);
-  }, [tab, search, categoryId, level]);
+  }, [tab, search, selectedCategories, level]);
 
   useEffect(() => {
     loadStats();
@@ -402,20 +406,70 @@ export default function AdminCoursesPage() {
       {filterOpen ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-wrap gap-4 pt-6">
-            <div className="space-y-2">
-              <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Category ID</Label>
-              <Input
-                className="w-[min(100%,12rem)]"
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                placeholder="e.g. 1"
-              />
+            <div className="space-y-2 flex flex-col">
+              <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Categories</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-[min(100%,15rem)] justify-between truncate"
+                    title={selectedCategories.length > 0 
+                      ? categories.filter(c => selectedCategories.includes(String(c.id))).map(c => c.name).join(', ') 
+                      : "Select categories..."}
+                  >
+                    <span className="truncate">
+                      {selectedCategories.length > 0
+                        ? categories
+                            .filter((c) => selectedCategories.includes(String(c.id)))
+                            .map((c) => c.name)
+                            .join(', ')
+                        : "Select categories..."}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[min(100%,15rem)] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search categories..." />
+                    <CommandList>
+                      <CommandEmpty>No category found.</CommandEmpty>
+                      <CommandGroup>
+                        {categories.map((category) => (
+                          <CommandItem
+                            key={category.id}
+                            value={category.name}
+                            onSelect={() => {
+                              const strId = String(category.id);
+                              setSelectedCategories((prev) =>
+                                prev.includes(strId)
+                                  ? prev.filter((id) => id !== strId)
+                                  : [...prev, strId]
+                              );
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedCategories.includes(String(category.id))
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              )}
+                            />
+                            {category.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Level</Label>
               <Select
                 value={level || LEVEL_FILTER_ANY}
-                onValueChange={(v) => setLevel(!v || v === LEVEL_FILTER_ANY ? '' : v)}
+                onValueChange={(v: string) => setLevel(!v || v === LEVEL_FILTER_ANY ? '' : v)}
               >
                 <SelectTrigger className="w-[min(100%,12rem)]">
                   <SelectValue placeholder="Level" />
@@ -535,7 +589,7 @@ export default function AdminCoursesPage() {
               <Label>Category</Label>
               <Select
                 value={courseCategoryId || CATEGORY_NONE}
-                onValueChange={(v) => setCourseCategoryId(!v || v === CATEGORY_NONE ? '' : v)}
+                onValueChange={(v: string) => setCourseCategoryId(!v || v === CATEGORY_NONE ? '' : v)}
                 disabled={categoriesLoading}
               >
                 <SelectTrigger className="w-full">
@@ -553,7 +607,7 @@ export default function AdminCoursesPage() {
             </div>
             <div className="space-y-2">
               <Label>Level</Label>
-              <Select value={courseLevel} onValueChange={(v) => setCourseLevel(v ?? 'beginner')}>
+              <Select value={courseLevel} onValueChange={(v: string) => setCourseLevel(v ?? 'beginner')}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
