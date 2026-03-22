@@ -60,22 +60,35 @@ def learner_has_membership(user, course_entity):
     ).exists()
 
 
-def can_access_content(user, entity):
+def can_access_content(user, entity, _visited=None):
+    """
+    Return True if the user is allowed to access this content entity.
+    Walks the full ancestor chain so deeply nested content (e.g. Course →
+    Module → Lesson → Quiz) is correctly handled.
+    """
     from content.models import ContentStructure, EntityType
     if can_manage_entity(user, entity):
         return True
-    parent_links = ContentStructure.objects.filter(child_entity=entity).select_related('parent_entity')
+
+    if _visited is None:
+        _visited = set()
+    if entity.pk in _visited:
+        return False  # cycle guard
+    _visited.add(entity.pk)
+
+    parent_links = ContentStructure.objects.filter(
+        child_entity=entity
+    ).select_related('parent_entity')
+
     for link in parent_links:
         parent = link.parent_entity
         if parent.entity_type == EntityType.COURSE:
             if learner_has_membership(user, parent):
                 return True
-        elif parent.entity_type == EntityType.MODULE:
-            course_links = ContentStructure.objects.filter(
-                child_entity=parent,
-            ).select_related('parent_entity')
-            for cl in course_links:
-                if cl.parent_entity.entity_type == EntityType.COURSE:
-                    if learner_has_membership(user, cl.parent_entity):
-                        return True
+        else:
+            # Walk further up recursively (handles Module, Lesson, etc.)
+            if can_access_content(user, parent, _visited):
+                return True
+
     return False
+

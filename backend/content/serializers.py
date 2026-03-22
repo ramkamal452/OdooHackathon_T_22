@@ -153,6 +153,7 @@ class LessonSerializer(serializers.Serializer):
     updated_at = serializers.DateTimeField()
     attachments = ContentAttachmentSerializer(many=True)
     questions = serializers.ListField(required=False)
+    children = serializers.ListField(required=False)
 
     @classmethod
     def from_entity(cls, entity, structure_link=None, request=None, is_completed=False, is_locked=False):
@@ -227,6 +228,7 @@ class LessonSerializer(serializers.Serializer):
             'updated_at': entity.updated_at,
             'attachments': attachments,
             'questions': questions_data,
+            'children': [],  # populated by CourseDetailSerializer
         }
 
 
@@ -411,6 +413,23 @@ class CourseDetailSerializer(serializers.Serializer):
                     is_locked=is_locked
                 )
                 lesson_data['module'] = None
+                # Fetch children of this lesson (e.g. a quiz nested inside a lesson)
+                child_of_lesson_links = list(
+                    ContentStructure.objects.filter(parent_entity=child)
+                    .select_related('child_entity')
+                    .order_by('sort_order')
+                )
+                lesson_children = []
+                for cl in child_of_lesson_links:
+                    cl_child = cl.child_entity
+                    cl_done = progress_map.get(cl_child.id, False)
+                    cl_data = LessonSerializer.from_entity(
+                        cl_child, cl, request,
+                        is_completed=cl_done,
+                        is_locked=is_locked,
+                    )
+                    lesson_children.append(cl_data)
+                lesson_data['children'] = lesson_children
                 dl_items.append(lesson_data)
                 last_completed = is_done if not is_locked else False
 
@@ -446,6 +465,23 @@ class CourseDetailSerializer(serializers.Serializer):
                     is_locked=is_locked
                 )
                 lesson_data['module'] = mod_entity.id
+                # Fetch children of this lesson (e.g. a quiz nested inside a lesson)
+                child_of_lesson_links = list(
+                    ContentStructure.objects.filter(parent_entity=child)
+                    .select_related('child_entity')
+                    .order_by('sort_order')
+                )
+                lesson_children = []
+                for cl in child_of_lesson_links:
+                    cl_child = cl.child_entity
+                    cl_done = progress_map.get(cl_child.id, False)
+                    cl_data = LessonSerializer.from_entity(
+                        cl_child, cl, request,
+                        is_completed=cl_done,
+                        is_locked=is_locked,
+                    )
+                    lesson_children.append(cl_data)
+                lesson_data['children'] = lesson_children
                 lessons.append(lesson_data)
                 last_completed = is_done if not is_locked else False
 
