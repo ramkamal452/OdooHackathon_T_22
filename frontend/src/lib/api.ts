@@ -235,6 +235,7 @@ export interface LessonItem {
   is_locked?: boolean;
   attachments?: AttachmentItem[];
   questions?: QuizQuestion[];
+  children?: LessonItem[];
 }
 
 export interface CourseListItem {

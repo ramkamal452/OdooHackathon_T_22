@@ -11,6 +11,7 @@ import Image from 'next/image';
 import {
   BookOpen,
   ChevronLeft,
+  FolderOpen,
   Layers,
   LayoutDashboard,
   LogOut,
@@ -34,6 +35,7 @@ const instructorLinks: SidebarLink[] = [
   { href: '/dashboard/instructor', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/instructor/courses/new', label: 'Create Course', icon: Plus },
   { href: '/dashboard/instructor/content', label: 'Content Manager', icon: Layers },
+  { href: '/dashboard/instructor/categories', label: 'Categories', icon: FolderOpen },
   { href: '/courses', label: 'Browse Courses', icon: BookOpen },
 ];
 
@@ -44,7 +46,7 @@ export default function DashboardSidebar() {
 
   const role = user?.role ?? 'learner';
   const links = role === 'instructor' ? instructorLinks : learnerLinks;
-  const roleLabel = role === 'instructor' ? 'Instructor' : 'Learner';
+  const roleLabel = role === 'instructor' ? 'Instructor' : role === 'admin' ? 'Admin' : 'Learner';
 
   return (
     <aside

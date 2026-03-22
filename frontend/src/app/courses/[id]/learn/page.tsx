@@ -26,7 +26,14 @@ function flattenLessons(modules: CourseDetail['modules']): LessonItem[] {
   const out: LessonItem[] = [];
   for (const m of sortedMods) {
     const ls = [...(m.lessons || [])].sort((a, b) => a.sort_order - b.sort_order);
-    out.push(...ls);
+    for (const l of ls) {
+      out.push(l);
+      // Also include quiz/children entities nested inside a lesson
+      if (l.children && l.children.length > 0) {
+        const sorted = [...l.children].sort((a, b) => a.sort_order - b.sort_order);
+        out.push(...sorted);
+      }
+    }
   }
   return out;
 }

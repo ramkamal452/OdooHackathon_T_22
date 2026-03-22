@@ -98,8 +98,8 @@ export default function LessonList({
                     const isLocked = !!lesson.is_locked;
 
                     return (
+                      <div key={lesson.id}>
                       <button
-                        key={lesson.id}
                         type="button"
                         onClick={() => !isLocked && onSelect(lesson)}
                         disabled={isLocked}
@@ -128,6 +128,43 @@ export default function LessonList({
                           </span>
                         )}
                       </button>
+                      {/* Render quiz/children entities nested inside this lesson */}
+                      {lesson.children && lesson.children.length > 0 && [...lesson.children]
+                        .sort((a, b) => a.sort_order - b.sort_order)
+                        .map((child) => {
+                          const ChildIcon = contentIcons[child.content_type] || HelpCircle;
+                          const childCompleted = completedMap.get(child.id);
+                          const childCurrent = child.id === currentLessonId;
+                          const childLocked = !!child.is_locked;
+                          return (
+                            <button
+                              key={child.id}
+                              type="button"
+                              onClick={() => !childLocked && onSelect(child)}
+                              disabled={childLocked}
+                              className={cn(
+                                'flex w-full items-center gap-3 rounded-md py-2 pl-8 pr-3 text-left text-sm transition-colors',
+                                childCurrent
+                                  ? 'bg-primary/10 text-primary font-medium'
+                                  : childLocked
+                                  ? 'text-muted-foreground/50 cursor-not-allowed'
+                                  : 'hover:bg-muted/50 text-foreground'
+                              )}
+                            >
+                              {childLocked ? (
+                                <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+                              ) : childCompleted ? (
+                                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                              ) : (
+                                <ChildIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              )}
+                              <span className={cn('min-w-0 flex-1 truncate text-xs', childLocked && 'opacity-50')}>
+                                {child.title}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     );
                   })}
               </div>

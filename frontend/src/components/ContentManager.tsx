@@ -855,7 +855,6 @@ function EntityEditor({
   const [r4, setR4] = useState('2');
   const [allowDownload, setAllowDownload] = useState(false);
   const [duration, setDuration] = useState('');
-  const [responsibleId, setResponsibleId] = useState('');
 
   useEffect(() => {
     setTitle(node.title);
@@ -873,7 +872,6 @@ function EntityEditor({
     setR4('2');
     setAllowDownload(Boolean(node.allow_download));
     setDuration(String(node.duration_seconds ?? ''));
-    setResponsibleId(node.responsible_id != null ? String(node.responsible_id) : '');
     setFile(null);
     if (fileRef.current) fileRef.current.value = '';
   }, [node.id]);
@@ -886,9 +884,6 @@ function EntityEditor({
     if (node.entity_type === 'resource') {
       payload.resource_url = resourceUrl;
       payload.resource_kind = Number(resourceKind);
-    }
-    if (['lesson', 'video', 'resource'].includes(node.entity_type) && responsibleId) {
-      payload.responsible = Number(responsibleId);
     }
     if (node.entity_type === 'quiz') {
       payload.pass_percentage = Number(passPct);
@@ -953,16 +948,6 @@ function EntityEditor({
           <form onSubmit={saveBasic} className="space-y-3">
             <Input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Title" className="w-full font-medium" />
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" rows={2} className="w-full text-sm" />
-
-            {['lesson', 'video', 'resource'].includes(node.entity_type) && (
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Responsible (User ID)</Label>
-                <Input type="number" value={responsibleId} onChange={(e) => setResponsibleId(e.target.value)} placeholder="User ID" className="w-40 text-sm" />
-                {node.responsible_name && !responsibleId && (
-                  <p className="text-xs text-muted-foreground">Current: {node.responsible_name}</p>
-                )}
-              </div>
-            )}
 
             {node.entity_type === 'lesson' && (
               <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Lesson body / content" rows={4} className="w-full text-sm" />
