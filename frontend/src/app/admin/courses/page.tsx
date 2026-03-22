@@ -339,7 +339,7 @@ export default function AdminCoursesPage() {
             <Copy className="h-4 w-4" />
           </Button>
           <Link
-            href={`/dashboard/instructor/courses/${r.id}/edit`}
+            href={`/admin/courses/${r.id}/edit`}
             aria-label="Edit course"
             className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }))}
           >
@@ -539,7 +539,7 @@ export default function AdminCoursesPage() {
                     )}
                     <div className="flex items-center justify-between pt-2">
                       <span className="text-xs text-muted-foreground">{r.lesson_count ?? 0} lessons</span>
-                      <Link href={`/dashboard/instructor/courses/${r.id}/edit`} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+                      <Link href={`/admin/courses/${r.id}/edit`} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
                         Edit
                       </Link>
                     </div>

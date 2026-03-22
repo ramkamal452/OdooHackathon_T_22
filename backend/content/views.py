@@ -51,6 +51,7 @@ from .serializers import (
 # ---------------------------------------------------------------------------
 
 def _course_qs(user=None):
+    from .models import VisibilityCode
     qs = ContentEntity.objects.filter(
         entity_type=EntityType.COURSE,
         deleted_at__isnull=True,
@@ -63,7 +64,11 @@ def _course_qs(user=None):
             return qs
         if role == 'instructor':
             return qs.filter(Q(owner=user) | Q(status_code=StatusCode.PUBLISHED))
-    return qs.filter(status_code=StatusCode.PUBLISHED)
+        return qs.filter(status_code=StatusCode.PUBLISHED)
+    return qs.filter(
+        status_code=StatusCode.PUBLISHED,
+        course_settings__visibility_code=VisibilityCode.EVERYONE,
+    )
 
 
 def _annotate_counts(qs):
@@ -256,6 +261,7 @@ class CourseDetailView(APIView):
         return [AllowAny()]
 
     def get(self, request, pk):
+        from .models import VisibilityCode
         entity = get_object_or_404(
             ContentEntity.objects.select_related('owner', 'thumbnail_asset', 'course_settings'),
             pk=pk, entity_type=EntityType.COURSE, deleted_at__isnull=True,
@@ -263,6 +269,13 @@ class CourseDetailView(APIView):
         if not can_view_entity(request.user, entity):
             raise NotFound()
         user = request.user if request.user and request.user.is_authenticated else None
+        if not user:
+            try:
+                vis = entity.course_settings.visibility_code
+            except Exception:
+                vis = VisibilityCode.EVERYONE
+            if vis == VisibilityCode.SIGNED_IN:
+                raise NotFound()
         data = CourseDetailSerializer.from_entity(entity, user=user, request=request)
         return Response(data)
 

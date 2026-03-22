@@ -238,14 +238,18 @@ export default function CourseDetailPage() {
         actions={
           <div className="flex items-center gap-2">
             {isOwner ? (
-              <Button size="sm" asChild><Link href={`/dashboard/instructor/courses/${id}/edit`}><Edit className="mr-1.5 h-4 w-4" />Edit</Link></Button>
+              <Button size="sm" asChild>
+                <Link href={user?.role === 'admin' ? `/admin/courses/${id}/edit` : `/dashboard/instructor/courses/${id}/edit`}>
+                  <Edit className="mr-1.5 h-4 w-4" />Edit
+                </Link>
+              </Button>
             ) : isPaid ? (
-              <Button size="sm" onClick={() => setPaymentOpen(true)} disabled={actionLoading}>
+              <Button size="sm" onClick={() => user ? setPaymentOpen(true) : router.push(`/login?redirect=/courses/${id}`)} disabled={actionLoading}>
                 <CreditCard className="mr-1.5 h-4 w-4" />Buy Course {price ? `— $${price}` : ''}
               </Button>
             ) : !enrolled ? (
-              <Button size="sm" onClick={enroll} disabled={actionLoading}>
-                {actionLoading ? 'Enrolling…' : 'Enroll Now'}
+              <Button size="sm" onClick={() => user ? enroll() : router.push(`/login?redirect=/courses/${id}`)} disabled={actionLoading}>
+                {actionLoading ? 'Enrolling…' : !user ? 'Login to Enroll' : 'Enroll Now'}
               </Button>
             ) : (
               <Button size="sm" asChild><Link href={`/courses/${id}/learn`}><Play className="mr-1.5 h-4 w-4" />Continue</Link></Button>

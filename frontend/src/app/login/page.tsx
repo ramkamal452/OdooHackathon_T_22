@@ -8,15 +8,21 @@ import { useAuth } from '@/lib/auth';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setRedirectTo(params.get('redirect'));
+  }, []);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -24,7 +30,7 @@ export default function LoginPage() {
     setPending(true);
     try {
       await login(email, password);
-      router.replace('/dashboard');
+      router.replace(redirectTo || '/dashboard');
     } catch {
       setError('Invalid email or password.');
     } finally {
