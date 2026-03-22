@@ -34,7 +34,6 @@ const sidebarLinks = [
   { href: '/admin/quizzes', label: 'Quizzes', icon: HelpCircle },
   { href: '/admin/reporting', label: 'Reporting', icon: PieChart },
   { href: '/admin/content-manager', label: 'Content Manager', icon: LayoutDashboard },
-  { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function AdminSidebar() {
